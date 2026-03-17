@@ -18,7 +18,6 @@ const styles = `
     overflow: hidden;
   }
 
-  /* ── Background — static, no animation ── */
   .lp-bg {
     position: fixed;
     inset: 0;
@@ -32,7 +31,6 @@ const styles = `
     z-index: 1;
   }
 
-  /* ── Card ── */
   .lp-card {
     position: relative;
     z-index: 10;
@@ -50,9 +48,6 @@ const styles = `
     to   { opacity: 1; transform: translateY(0); }
   }
 
-  /* (Removed gold accent bar on top) */
-
-  /* ── Brand ── */
   .lp-brand {
     text-align: center;
     margin-bottom: 2rem;
@@ -80,7 +75,6 @@ const styles = `
     font-weight: 400;
   }
 
-  /* ── Form ── */
   .lp-form { display: flex; flex-direction: column; gap: 1.15rem; }
 
   .lp-field {
@@ -115,7 +109,6 @@ const styles = `
   .lp-input:hover  { border-color: #b8c2ce; background: #f2f4f7; }
   .lp-input:focus  { border-color: #1a2e4a; background: #fff; box-shadow: 0 0 0 3px rgba(26,46,74,0.09); }
 
-  /* ── Password row ── */
   .lp-pw-row {
     display: flex;
     justify-content: space-between;
@@ -123,7 +116,7 @@ const styles = `
   }
   .lp-forgot {
     font-size: 0.76rem;
-    color: #c9a84c;
+    color: #0a4c86;
     background: none;
     border: none;
     cursor: pointer;
@@ -132,7 +125,7 @@ const styles = `
     transition: color 0.2s;
     font-family: 'DM Sans', sans-serif;
   }
-  .lp-forgot:hover { color: #a8872e; }
+  .lp-forgot:hover { color: #1a2e4a; }
 
   .lp-toggle {
     position: absolute; right: 0.8rem; top: 50%;
@@ -145,13 +138,11 @@ const styles = `
   }
   .lp-toggle:hover { color: #1a2e4a; }
 
-  /* ── Sign in button ── */
   .lp-btn {
     margin-top: 0.35rem;
     padding: 0.88rem;
     border: none;
     border-radius: 9px;
-    /* Brand blue (matches logo text) */
     background: linear-gradient(120deg, #0b5fa5, #0a4c86);
     color: #fff;
     font-family: 'DM Sans', sans-serif;
@@ -165,13 +156,59 @@ const styles = `
   }
   .lp-btn:hover  { filter: brightness(1.04); box-shadow: 0 18px 40px rgba(15, 23, 42, 0.45); transform: translateY(-1px); }
   .lp-btn:active { transform: translateY(0); filter: brightness(1); box-shadow: 0 10px 25px rgba(15, 23, 42, 0.35); }
+  .lp-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; filter: none; }
 
-  /* ══════════════════════════════════
-     FORGOT PASSWORD — RIGHT SIDE PANEL
-  ══════════════════════════════════ */
+  /* ── Loading overlay ── */
+  .lp-loading-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    background: rgba(10, 76, 134, 0.92);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    animation: fadeInOverlay 0.3s ease both;
+  }
+  @keyframes fadeInOverlay {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  .lp-loading-spinner {
+    width: 52px;
+    height: 52px;
+    border: 4px solid rgba(255,255,255,0.25);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: spin 0.85s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  .lp-loading-text {
+    color: #ffffff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    opacity: 0.9;
+  }
+  .lp-loading-sub {
+    color: rgba(255,255,255,0.55);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem;
+    margin-top: -0.65rem;
+  }
+
+  /* ══════════════════════════════════════════
+     Forgot / Create — responsive panel/sheet
+  ══════════════════════════════════════════ */
+
+  /* Overlay backdrop */
   .lp-overlay {
     position: fixed; inset: 0; z-index: 100;
-    background: rgba(0, 0, 0, 0.38);
+    background: rgba(0, 0, 0, 0.45);
     backdrop-filter: blur(3px);
     display: flex;
     align-items: stretch;
@@ -183,26 +220,28 @@ const styles = `
     to   { opacity: 1; }
   }
 
+  /* ── Desktop / Tablet landscape: right-side panel ── */
   .lp-dialog {
     width: 100%;
-    max-width: 420px;
+    max-width: 440px;
     height: 100vh;
     background: #ffffff;
-    padding: 0 2.75rem;
+    padding: 5rem 2.75rem 2.5rem;
     box-shadow: -16px 0 56px rgba(0,0,0,0.22);
     animation: slideIn 0.38s cubic-bezier(0.16,1,0.3,1) both;
     position: relative;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
   @keyframes slideIn {
     from { opacity: 0; transform: translateX(80px); }
     to   { opacity: 1; transform: translateX(0); }
   }
 
-  /* Gold left border on dialog */
+  /* Gold left accent bar */
   .lp-dialog::before {
     content: '';
     position: absolute;
@@ -211,8 +250,52 @@ const styles = `
     background: linear-gradient(180deg, #c9a84c, #e8c97a, #c9a84c);
   }
 
+  /* ── Mobile portrait (≤ 600px): bottom sheet ── */
+  @media (max-width: 600px) {
+    .lp-overlay {
+      align-items: flex-end;
+      justify-content: stretch;
+    }
+    .lp-dialog {
+      max-width: 100%;
+      width: 100%;
+      height: auto;
+      max-height: 92vh;
+      border-radius: 22px 22px 0 0;
+      padding: 1.5rem 1.25rem 2rem;
+      box-shadow: 0 -12px 48px rgba(0,0,0,0.22);
+      animation: slideUp 0.38s cubic-bezier(0.16,1,0.3,1) both;
+      justify-content: flex-start;
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(60px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    /* Hide side accent bar on mobile bottom sheet */
+    .lp-dialog::before { display: none; }
+    /* Drag handle pill */
+    .lp-dialog::after {
+      content: '';
+      position: absolute;
+      top: 0.55rem; left: 50%;
+      transform: translateX(-50%);
+      width: 36px; height: 4px;
+      border-radius: 2px;
+      background: #d1d5db;
+    }
+  }
+
+  /* ── Small tablet portrait (601–768px): wider panel ── */
+  @media (min-width: 601px) and (max-width: 768px) {
+    .lp-dialog {
+      max-width: 360px;
+      padding: 4.5rem 2rem 2rem;
+    }
+  }
+
+  /* Close button */
   .lp-dialog-close {
-    position: absolute; top: 1.5rem; right: 1.5rem;
+    position: absolute; top: 1.25rem; right: 1.25rem;
     background: #f2f4f7;
     border: none;
     border-radius: 50%;
@@ -221,39 +304,45 @@ const styles = `
     cursor: pointer; color: #6b7685;
     font-size: 0.9rem; line-height: 1;
     transition: background 0.2s, color 0.2s;
+    z-index: 2;
   }
   .lp-dialog-close:hover { background: #e2e6ed; color: #1a2e4a; }
 
   .lp-dialog-icon {
-    width: 50px; height: 50px;
+    width: 48px; height: 48px;
     border-radius: 13px;
     background: #f0f3f7;
     border: 1.5px solid #dde3ec;
     display: flex; align-items: center; justify-content: center;
-    margin-bottom: 1.5rem;
-    font-size: 1.5rem;
+    margin-bottom: 1.25rem;
+    font-size: 1.4rem;
+    flex-shrink: 0;
   }
 
   .lp-dialog-title {
     font-family: 'Playfair Display', serif;
-    font-size: 1.65rem;
+    font-size: 1.5rem;
     font-weight: 500;
     color: #1a2e4a;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.45rem;
   }
-  .lp-dialog-desc {
-    font-size: 0.84rem;
-    color: #6b7685;
-    line-height: 1.65;
-    margin-bottom: 2rem;
+  @media (max-width: 600px) {
+    .lp-dialog-title { font-size: 1.25rem; }
   }
 
-  .lp-dialog-field { display: flex; flex-direction: column; gap: 0.45rem; margin-bottom: 1.25rem; }
+  .lp-dialog-desc {
+    font-size: 0.83rem;
+    color: #6b7685;
+    line-height: 1.65;
+    margin-bottom: 1.5rem;
+  }
+
+  .lp-dialog-field { display: flex; flex-direction: column; gap: 0.45rem; margin-bottom: 1.15rem; }
 
   .lp-dialog-btn {
     width: 100%; padding: 0.88rem;
     border: none; border-radius: 9px;
-    background: #1a2e4a;
+    background: #0a4c86;
     color: #fff;
     font-family: 'DM Sans', sans-serif;
     font-size: 0.88rem; font-weight: 500;
@@ -261,6 +350,7 @@ const styles = `
     cursor: pointer;
     transition: background 0.2s, transform 0.15s;
     box-shadow: 0 5px 16px rgba(26,46,74,0.25);
+    margin-top: 2rem;
   }
   .lp-dialog-btn:hover { background: #243d61; transform: translateY(-1px); }
   .lp-dialog-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
@@ -277,7 +367,7 @@ const styles = `
   }
 
   .lp-back {
-    display: block; text-align: center; margin-top: 1.25rem;
+    display: block; text-align: center; margin-top: 1.1rem;
     font-size: 0.79rem; color: #8a95a3;
     background: none; border: none; cursor: pointer;
     font-family: 'DM Sans', sans-serif;
@@ -285,6 +375,7 @@ const styles = `
   }
   .lp-back:hover { color: #1a2e4a; }
 
+  /* ── Login card responsive ── */
   .lp-keep-row {
     display: flex;
     justify-content: space-between;
@@ -298,10 +389,8 @@ const styles = `
     font-size: 0.8rem;
     color: #4a5568;
   }
-  .lp-keep-checkbox input {
-    width: 15px;
-    height: 15px;
-  }
+  .lp-keep-checkbox input { width: 15px; height: 15px; }
+
   .lp-create-link {
     font-size: 0.8rem;
     color: #0b5fa5;
@@ -313,13 +402,12 @@ const styles = `
     text-underline-offset: 3px;
     font-family: 'DM Sans', sans-serif;
   }
-  .lp-create-link:hover {
-    color: #083766;
-  }
+  .lp-create-link:hover { color: #083766; }
 
+  /* ── Create account panel specifics ── */
   .lp-create-title {
     font-family: 'Playfair Display', serif;
-    font-size: 1.55rem;
+    font-size: 1.45rem;
     font-weight: 500;
     color: #1a2e4a;
     margin-bottom: 0.4rem;
@@ -330,24 +418,47 @@ const styles = `
     gap: 0.35rem;
     padding: 0.25rem 0.6rem;
     border-radius: 999px;
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     font-weight: 600;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     background: #eef2ff;
     color: #3730a3;
     border: 1px solid #e0e7ff;
-    margin-bottom: 0.85rem;
+    margin-bottom: 0.75rem;
   }
+
+  /* 2-col on tablet+, 1-col on mobile */
   .lp-create-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.85rem 0.8rem;
+    gap: 0.8rem 0.75rem;
+    margin-bottom: 0.5rem;
   }
   .lp-create-span2 { grid-column: span 2; }
-  @media (max-width: 540px) {
-    .lp-create-grid { grid-template-columns: 1fr; }
+
+  @media (max-width: 600px) {
+    .lp-create-grid {
+      grid-template-columns: 1fr;
+      gap: 0.7rem;
+    }
     .lp-create-span2 { grid-column: span 1; }
+    /* Tighten login card on small phones */
+    .lp-card {
+      margin: 1rem;
+      padding: 2rem 1.5rem 1.75rem;
+    }
+    .lp-city-logo { width: 120px; }
+  }
+
+  @media (min-width: 601px) and (max-width: 768px) {
+    .lp-create-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+    .lp-card {
+      margin: 2rem;
+      padding: 2.25rem 2rem 2rem;
+    }
   }
 `;
 
@@ -360,6 +471,7 @@ export default function LoginPage() {
   const [resetSent, setResetSent]   = useState(false);
   const [resetting, setResetting]   = useState(false);
   const [error, setError]           = useState<string | null>(null);
+  const [loading, setLoading]       = useState(false);   // ← loading screen
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating]     = useState(false);
   const [createSent, setCreateSent] = useState(false);
@@ -382,19 +494,17 @@ export default function LoginPage() {
   const base64Url = (bytes: Uint8Array) => {
     let s = "";
     for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
-    const b64 = btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-    return b64;
+    return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
   };
 
   const sha256Hex = async (text: string) => {
     const enc = new TextEncoder().encode(text);
     const buf = await crypto.subtle.digest("SHA-256", enc);
-    const bytes = new Uint8Array(buf);
-    return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Shared login logic — called by both form submit and Enter key
+  const performLogin = async () => {
     setError(null);
     const ident = identifier.trim();
     if (!ident || !password) { setError("Please enter your username/email and password."); return; }
@@ -430,11 +540,22 @@ export default function LoginPage() {
       localStorage.setItem("session_user_id", user.id);
       localStorage.setItem("session_user_full_name", user.full_name);
       localStorage.setItem("session_user_role", user.role);
+      localStorage.setItem("session_expires_at", expiresAt);
 
-      navigate("/dashboard");
+      // Show loading screen for 3 seconds, then navigate
+      setLoading(true);
+      setTimeout(() => {
+        navigate("/dashboard", { replace: true });
+      }, 3000);
+
     } catch (ex: any) {
       setError(ex?.message ?? "Login failed.");
     }
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await performLogin();
   };
 
   const handleReset = async (e: React.FormEvent) => {
@@ -504,8 +625,16 @@ export default function LoginPage() {
     <>
       <style>{styles}</style>
 
+      {/* ── 3-second loading overlay ── */}
+      {loading && (
+        <div className="lp-loading-overlay">
+          <div className="lp-loading-spinner" />
+          <p className="lp-loading-text">Signing you in…</p>
+          <p className="lp-loading-sub">Please wait a moment</p>
+        </div>
+      )}
+
       <div className="lp-root">
-        {/* Static background — no animation */}
         <div className="lp-bg" />
         <div className="lp-bg-overlay" />
 
@@ -513,7 +642,7 @@ export default function LoginPage() {
         <div className="lp-card">
           <div className="lp-brand">
             <img
-              src="./masaya-sa-tarlac-city.png"
+              src="./tarlac-city-logo-masaya.png"
               alt="Masaya sa Tarlac City"
               className="lp-city-logo"
             />
@@ -521,7 +650,6 @@ export default function LoginPage() {
           </div>
 
           <form className="lp-form" onSubmit={handleLogin}>
-            {/* Email / Username */}
             <div className="lp-field">
               <label className="lp-label" htmlFor="identifier">Email or Username</label>
               <input
@@ -532,10 +660,10 @@ export default function LoginPage() {
                 autoComplete="username"
                 value={identifier}
                 onChange={e => setIdentifier(e.target.value)}
+                disabled={loading}
               />
             </div>
 
-            {/* Password */}
             <div className="lp-field">
               <div className="lp-pw-row">
                 <label className="lp-label" htmlFor="password">Password</label>
@@ -557,6 +685,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   style={{ paddingRight: "3.2rem" }}
+                  disabled={loading}
                 />
                 <button
                   type="button"
@@ -569,17 +698,15 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div
-                style={{
-                  marginTop: "0.25rem",
-                  padding: "0.55rem 0.8rem",
-                  borderRadius: 8,
-                  backgroundColor: "#fef2f2",
-                  border: "1px solid #fecaca",
-                  color: "#b91c1c",
-                  fontSize: "0.78rem",
-                }}
-              >
+              <div style={{
+                marginTop: "0.25rem",
+                padding: "0.55rem 0.8rem",
+                borderRadius: 8,
+                backgroundColor: "#fef2f2",
+                border: "1px solid #fecaca",
+                color: "#b91c1c",
+                fontSize: "0.78rem",
+              }}>
                 {error}
               </div>
             )}
@@ -595,32 +722,25 @@ export default function LoginPage() {
               </label>
             </div>
 
-            <button className="lp-btn" type="submit">Sign in</button>
+            <button className="lp-btn" type="submit" disabled={loading}>
+              {loading ? "Signing in…" : "Sign in"}
+            </button>
           </form>
 
           <div style={{ marginTop: "1.1rem", display: "flex", justifyContent: "center", gap: "0.35rem", fontSize: "0.8rem", color: "#6b7280" }}>
             <span>Don&apos;t have an account?</span>
-            <button
-              type="button"
-              className="lp-create-link"
-              onClick={() => setShowCreate(true)}
-            >
+            <button type="button" className="lp-create-link" onClick={() => setShowCreate(true)}>
               Create one
             </button>
           </div>
         </div>
 
-        {/* ══ Forgot Password — slides in from RIGHT ══ */}
+        {/* ══ Forgot Password ══ */}
         {showForgot && (
-          <div
-            className="lp-overlay"
-            onClick={e => { if (e.target === e.currentTarget) closeForgot(); }}
-          >
+          <div className="lp-overlay" onClick={e => { if (e.target === e.currentTarget) closeForgot(); }}>
             <div className="lp-dialog" role="dialog" aria-modal="true">
               <button className="lp-dialog-close" onClick={closeForgot} aria-label="Close">✕</button>
-
               <div className="lp-dialog-icon">🔑</div>
-
               {!resetSent ? (
                 <>
                   <h2 className="lp-dialog-title">Reset password</h2>
@@ -640,11 +760,7 @@ export default function LoginPage() {
                         required
                       />
                     </div>
-                    <button
-                      className="lp-dialog-btn"
-                      type="submit"
-                      disabled={resetting || !resetEmail}
-                    >
+                    <button className="lp-dialog-btn" type="submit" disabled={resetting || !resetEmail}>
                       {resetting ? "Sending…" : "Send Reset Link"}
                     </button>
                   </form>
@@ -653,9 +769,7 @@ export default function LoginPage() {
               ) : (
                 <>
                   <h2 className="lp-dialog-title">Check your email</h2>
-                  <p className="lp-dialog-desc">
-                    We've sent a reset link to your inbox. It expires in 15 minutes.
-                  </p>
+                  <p className="lp-dialog-desc">We've sent a reset link to your inbox. It expires in 15 minutes.</p>
                   <div className="lp-success-msg">
                     📬 A reset link was sent to <strong>{resetEmail}</strong>.<br />
                     Didn't receive it? Check your spam folder.
@@ -667,102 +781,52 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* ══ Create Account — slides in from RIGHT ══ */}
+        {/* ══ Create Account ══ */}
         {showCreate && (
-          <div
-            className="lp-overlay"
-            onClick={e => { if (e.target === e.currentTarget) closeCreate(); }}
-          >
+          <div className="lp-overlay" onClick={e => { if (e.target === e.currentTarget) closeCreate(); }}>
             <div className="lp-dialog" role="dialog" aria-modal="true">
               <button className="lp-dialog-close" onClick={closeCreate} aria-label="Close">✕</button>
-
               {!createSent ? (
                 <>
                   <span className="lp-create-pill">Admin approval required</span>
                   <h2 className="lp-create-title">Request an account</h2>
                   <p className="lp-dialog-desc">
                     Fill in your details below. Once an administrator approves your request,
-                    you&apos;ll be able to sign in using your username and password.
+                    you'll be able to sign in using your username and password.
                   </p>
-
                   <form onSubmit={handleCreateAccount}>
                     <div className="lp-create-grid">
                       <div className="lp-create-span2">
                         <label className="lp-label" htmlFor="ca-fullname">Full name</label>
-                        <input
-                          id="ca-fullname"
-                          className="lp-input"
-                          type="text"
-                          placeholder="Juan Dela Cruz"
-                          value={create.full_name}
-                          onChange={e => setCreate(c => ({ ...c, full_name: e.target.value }))}
-                          required
-                        />
+                        <input id="ca-fullname" className="lp-input" type="text" placeholder="Juan Dela Cruz"
+                          value={create.full_name} onChange={e => setCreate(c => ({ ...c, full_name: e.target.value }))} required />
                       </div>
                       <div>
                         <label className="lp-label" htmlFor="ca-username">Username</label>
-                        <input
-                          id="ca-username"
-                          className="lp-input"
-                          type="text"
-                          placeholder="juan_dc"
-                          value={create.username}
-                          onChange={e => setCreate(c => ({ ...c, username: e.target.value }))}
-                          required
-                        />
+                        <input id="ca-username" className="lp-input" type="text" placeholder="juan_dc"
+                          value={create.username} onChange={e => setCreate(c => ({ ...c, username: e.target.value }))} required />
                       </div>
                       <div>
                         <label className="lp-label" htmlFor="ca-email">Email</label>
-                        <input
-                          id="ca-email"
-                          className="lp-input"
-                          type="email"
-                          placeholder="you@example.com"
-                          value={create.email}
-                          onChange={e => setCreate(c => ({ ...c, email: e.target.value }))}
-                          required
-                        />
+                        <input id="ca-email" className="lp-input" type="email" placeholder="you@example.com"
+                          value={create.email} onChange={e => setCreate(c => ({ ...c, email: e.target.value }))} required />
                       </div>
                       <div>
                         <label className="lp-label" htmlFor="ca-password">Password</label>
-                        <input
-                          id="ca-password"
-                          className="lp-input"
-                          type="password"
-                          placeholder="••••••••"
-                          value={create.password}
-                          onChange={e => setCreate(c => ({ ...c, password: e.target.value }))}
-                          required
-                        />
+                        <input id="ca-password" className="lp-input" type="password" placeholder="••••••••"
+                          value={create.password} onChange={e => setCreate(c => ({ ...c, password: e.target.value }))} required />
                       </div>
                       <div>
                         <label className="lp-label" htmlFor="ca-confirm">Confirm password</label>
-                        <input
-                          id="ca-confirm"
-                          className="lp-input"
-                          type="password"
-                          placeholder="••••••••"
-                          value={create.confirmPassword}
-                          onChange={e => setCreate(c => ({ ...c, confirmPassword: e.target.value }))}
-                          required
-                        />
+                        <input id="ca-confirm" className="lp-input" type="password" placeholder="••••••••"
+                          value={create.confirmPassword} onChange={e => setCreate(c => ({ ...c, confirmPassword: e.target.value }))} required />
                       </div>
                     </div>
-
                     {createError && (
-                      <div style={{
-                        marginTop: "0.25rem",
-                        padding: "0.55rem 0.8rem",
-                        borderRadius: 8,
-                        backgroundColor: "#fef2f2",
-                        border: "1px solid #fecaca",
-                        color: "#b91c1c",
-                        fontSize: "0.78rem",
-                      }}>
+                      <div style={{ marginTop: "0.25rem", padding: "0.55rem 0.8rem", borderRadius: 8, backgroundColor: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", fontSize: "0.78rem" }}>
                         {createError}
                       </div>
                     )}
-
                     <button className="lp-dialog-btn" type="submit" disabled={creating}>
                       {creating ? "Submitting…" : "Submit for approval"}
                     </button>
@@ -772,12 +836,8 @@ export default function LoginPage() {
               ) : (
                 <>
                   <h2 className="lp-dialog-title">Request submitted</h2>
-                  <p className="lp-dialog-desc">
-                    Your account request is pending admin approval.
-                  </p>
-                  <div className="lp-success-msg">
-                    You can sign in once an admin approves your request.
-                  </div>
+                  <p className="lp-dialog-desc">Your account request is pending admin approval.</p>
+                  <div className="lp-success-msg">You can sign in once an admin approves your request.</div>
                   <button className="lp-back" onClick={closeCreate}>← Back to sign in</button>
                 </>
               )}
