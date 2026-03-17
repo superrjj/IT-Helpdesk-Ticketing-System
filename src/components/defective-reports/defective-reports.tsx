@@ -4,7 +4,7 @@ import {
   Plus, Pencil, Trash2, Eye, Search,
   ChevronUp, ChevronDown, X, AlertTriangle,
   ChevronLeft, ChevronRight, ShieldAlert,
-  Monitor, Cpu, Wifi, Plug, HelpCircle,
+  Monitor, Cpu, Wifi, Plug, HelpCircle, Building2,
 } from "lucide-react";
 
 // ── Supabase client ────────────────────────────────────────────────────────────
@@ -22,35 +22,39 @@ type SortDir     = "asc" | "desc";
 type ModalMode   = "add" | "edit" | "view" | null;
 
 type DefectiveReport = {
-  id:           string;
-  equipment_id: string | null;
-  reported_by:  string | null;
-  category:     Category;
-  title:        string;
-  description:  string;
-  severity:     Severity;
-  status:       ReportStatus;
-  resolved_at:  string | null;
-  created_at:   string;
-  updated_at:   string;
+  id:            string;
+  equipment_id:  string | null;
+  reported_by:   string | null;
+  department_id: string | null;
+  category:      Category;
+  title:         string;
+  description:   string;
+  severity:      Severity;
+  status:        ReportStatus;
+  resolved_at:   string | null;
+  created_at:    string;
+  updated_at:    string;
   // joined
   equipment_name?:   string;
   equipment_serial?: string;
   reporter_name?:    string;
+  department_name?:  string;
 };
 
-type EquipmentOption = { id: string; name: string; serial_number: string };
-type UserOption      = { id: string; full_name: string; username: string };
+type EquipmentOption  = { id: string; name: string; serial_number: string };
+type UserOption       = { id: string; full_name: string; username: string };
+type DepartmentOption = { id: string; name: string };
 
 type FormState = {
-  equipment_id: string;
-  reported_by:  string;
-  category:     Category;
-  title:        string;
-  description:  string;
-  severity:     Severity;
-  status:       ReportStatus;
-  resolved_at:  string;
+  equipment_id:  string;
+  reported_by:   string;
+  department_id: string;
+  category:      Category;
+  title:         string;
+  description:   string;
+  severity:      Severity;
+  status:        ReportStatus;
+  resolved_at:   string;
 };
 
 const BRAND     = "#0a4c86";
@@ -60,19 +64,34 @@ const CATEGORIES: Category[] = [
   "Hardware", "Software", "Network / Internet", "Peripheral", "Other",
 ];
 
-const SEVERITIES: Severity[]    = ["Low", "Medium", "High", "Critical"];
-const STATUSES: ReportStatus[]  = ["Open", "In Progress", "Resolved", "Closed"];
+const SEVERITIES: Severity[]   = ["Low", "Medium", "High", "Critical"];
+const STATUSES: ReportStatus[] = ["Open", "In Progress", "Resolved", "Closed"];
 
-// ── Category config (icon + color) ────────────────────────────────────────────
-const CATEGORY_CONFIG: Record<Category, { icon: React.ReactNode; bg: string; color: string }> = {
-  "Hardware":          { icon: <Cpu size={11} />,     bg: "rgba(10,76,134,0.09)",   color: "#0a4c86" },
-  "Software":          { icon: <Monitor size={11} />, bg: "rgba(124,58,237,0.09)",  color: "#7c3aed" },
-  "Network / Internet":{ icon: <Wifi size={11} />,    bg: "rgba(6,182,212,0.09)",   color: "#0891b2" },
-  "Peripheral":        { icon: <Plug size={11} />,    bg: "rgba(234,179,8,0.11)",   color: "#a16207" },
-  "Other":             { icon: <HelpCircle size={11}/>,bg: "rgba(100,116,139,0.09)",color: "#475569" },
+// ── Category config ────────────────────────────────────────────────────────────
+const CATEGORY_CONFIG: Record<Category, {
+  icon: React.ReactNode;
+  bg: string;
+  activeBg: string;
+  color: string;
+  border: string;
+}> = {
+  "Hardware":          { icon: <Cpu size={14} />,      bg: "#f8fafc", activeBg: "rgba(10,76,134,0.08)",   color: "#0a4c86", border: "#0a4c86" },
+  "Software":          { icon: <Monitor size={14} />,  bg: "#f8fafc", activeBg: "rgba(124,58,237,0.08)",  color: "#7c3aed", border: "#7c3aed" },
+  "Network / Internet":{ icon: <Wifi size={14} />,     bg: "#f8fafc", activeBg: "rgba(6,182,212,0.08)",   color: "#0891b2", border: "#0891b2" },
+  "Peripheral":        { icon: <Plug size={14} />,     bg: "#f8fafc", activeBg: "rgba(234,179,8,0.10)",   color: "#a16207", border: "#ca8a04" },
+  "Other":             { icon: <HelpCircle size={14}/>, bg: "#f8fafc", activeBg: "rgba(100,116,139,0.08)", color: "#475569", border: "#64748b" },
 };
 
-// ── Security: sanitize free-text ──────────────────────────────────────────────
+// Badge-specific (smaller icon)
+const CATEGORY_BADGE_CONFIG: Record<Category, { icon: React.ReactNode; bg: string; color: string }> = {
+  "Hardware":          { icon: <Cpu size={11} />,      bg: "rgba(10,76,134,0.09)",   color: "#0a4c86" },
+  "Software":          { icon: <Monitor size={11} />,  bg: "rgba(124,58,237,0.09)",  color: "#7c3aed" },
+  "Network / Internet":{ icon: <Wifi size={11} />,     bg: "rgba(6,182,212,0.09)",   color: "#0891b2" },
+  "Peripheral":        { icon: <Plug size={11} />,     bg: "rgba(234,179,8,0.11)",   color: "#a16207" },
+  "Other":             { icon: <HelpCircle size={11}/>, bg: "rgba(100,116,139,0.09)", color: "#475569" },
+};
+
+// ── Sanitize ──────────────────────────────────────────────────────────────────
 function sanitize(val: string): string {
   return val
     .replace(/</g, "&lt;")
@@ -90,33 +109,29 @@ function validateForm(form: FormState): string {
   if (form.description.trim().length > 2000)
                            return "Description must be 2000 characters or less.";
   if (!form.reported_by)   return "Please select who is reporting this.";
+  if (!form.department_id) return "Please select the department filing this report.";
   if (!CATEGORIES.includes(form.category))  return "Invalid category selected.";
   if (!SEVERITIES.includes(form.severity))  return "Invalid severity selected.";
   if (!STATUSES.includes(form.status))      return "Invalid status selected.";
-
-  // Equipment only required for hardware/peripheral — software & network issues
-  // may not be tied to a specific device
   if ((form.category === "Hardware" || form.category === "Peripheral") && !form.equipment_id)
     return "Please select the affected equipment for Hardware / Peripheral reports.";
-
   if ((form.status === "Resolved" || form.status === "Closed") && !form.resolved_at)
     return "Please set a resolved date for Resolved / Closed reports.";
-
   return "";
 }
 
 const emptyForm = (): FormState => ({
-  equipment_id: "",
-  reported_by:  "",
-  category:     "Hardware",
-  title:        "",
-  description:  "",
-  severity:     "Low",
-  status:       "Open",
-  resolved_at:  "",
+  equipment_id:  "",
+  reported_by:   "",
+  department_id: "",
+  category:      "Hardware",
+  title:         "",
+  description:   "",
+  severity:      "Low",
+  status:        "Open",
+  resolved_at:   "",
 });
 
-// ── Friendly DB error mapper ──────────────────────────────────────────────────
 function friendlyError(msg: string): string {
   if (msg.includes("foreign key"))  return "Cannot complete — a referenced record no longer exists.";
   if (msg.includes("not-null") || msg.includes("null value")) return "A required field is missing.";
@@ -126,7 +141,7 @@ function friendlyError(msg: string): string {
 
 // ── Badges ────────────────────────────────────────────────────────────────────
 const CategoryBadge: React.FC<{ category: string }> = ({ category }) => {
-  const cfg = CATEGORY_CONFIG[category as Category]
+  const cfg = CATEGORY_BADGE_CONFIG[category as Category]
     ?? { icon: <HelpCircle size={11} />, bg: "rgba(100,116,139,0.09)", color: "#475569" };
   return (
     <span style={{
@@ -179,6 +194,7 @@ const DefectiveReports: React.FC = () => {
   const [reports, setReports]         = useState<DefectiveReport[]>([]);
   const [equipment, setEquipment]     = useState<EquipmentOption[]>([]);
   const [users, setUsers]             = useState<UserOption[]>([]);
+  const [departments, setDepartments] = useState<DepartmentOption[]>([]);
   const [loading, setLoading]         = useState(true);
   const [search, setSearch]           = useState("");
   const [filterCategory, setFilterCategory] = useState("All");
@@ -195,7 +211,6 @@ const DefectiveReports: React.FC = () => {
   const [submitting, setSubmitting]   = useState(false);
   const [toast, setToast]             = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
-  // ── Toast ──────────────────────────────────────────────────────────────────
   const showToast = (msg: string, type: "success" | "error") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3500);
@@ -207,10 +222,11 @@ const DefectiveReports: React.FC = () => {
     const { data, error } = await supabase
       .from("defective_reports")
       .select(`
-        id, equipment_id, reported_by, category, title, description,
+        id, equipment_id, reported_by, department_id, category, title, description,
         severity, status, resolved_at, created_at, updated_at,
         equipment ( name, serial_number ),
-        user_accounts ( full_name )
+        user_accounts ( full_name ),
+        departments ( name )
       `)
       .order(sortField, { ascending: sortDir === "asc" });
 
@@ -223,18 +239,21 @@ const DefectiveReports: React.FC = () => {
         equipment_name:   r.equipment?.name          ?? null,
         equipment_serial: r.equipment?.serial_number ?? null,
         reporter_name:    r.user_accounts?.full_name ?? null,
+        department_name:  r.departments?.name        ?? null,
       })));
     }
     setLoading(false);
   };
 
   const fetchDropdowns = async () => {
-    const [{ data: eq }, { data: ua }] = await Promise.all([
+    const [{ data: eq }, { data: ua }, { data: depts }] = await Promise.all([
       supabase.from("equipment").select("id, name, serial_number").order("name"),
       supabase.from("user_accounts").select("id, full_name, username").eq("is_active", true).order("full_name"),
+      supabase.from("departments").select("id, name").order("name"),
     ]);
     setEquipment((eq ?? []) as EquipmentOption[]);
     setUsers((ua ?? []) as UserOption[]);
+    setDepartments((depts ?? []) as DepartmentOption[]);
   };
 
   useEffect(() => { fetchReports(); }, [sortField, sortDir]);
@@ -246,7 +265,7 @@ const DefectiveReports: React.FC = () => {
     return reports.filter(r => {
       const matchSearch = !q || [
         r.title, r.description, r.equipment_name ?? "",
-        r.reporter_name ?? "", r.category,
+        r.reporter_name ?? "", r.department_name ?? "", r.category,
       ].some(v => v.toLowerCase().includes(q));
       const matchCat    = filterCategory === "All" || r.category === filterCategory;
       const matchSev    = filterSeverity === "All" || r.severity === filterSeverity;
@@ -291,20 +310,20 @@ const DefectiveReports: React.FC = () => {
   const openEdit = (r: DefectiveReport) => {
     closeModal(); setSelected(r);
     setForm({
-      equipment_id: r.equipment_id ?? "",
-      reported_by:  r.reported_by  ?? "",
-      category:     r.category,
-      title:        r.title,
-      description:  r.description,
-      severity:     r.severity,
-      status:       r.status,
-      resolved_at:  r.resolved_at ? r.resolved_at.slice(0, 10) : "",
+      equipment_id:  r.equipment_id  ?? "",
+      reported_by:   r.reported_by   ?? "",
+      department_id: r.department_id ?? "",
+      category:      r.category,
+      title:         r.title,
+      description:   r.description,
+      severity:      r.severity,
+      status:        r.status,
+      resolved_at:   r.resolved_at ? r.resolved_at.slice(0, 10) : "",
     });
     setModalMode("edit");
   };
   const openView = (r: DefectiveReport) => { setSelected(r); setModalMode("view"); };
 
-  // Changing category clears equipment if not hardware/peripheral
   const handleCategoryChange = (cat: Category) => {
     setForm(f => ({
       ...f,
@@ -322,17 +341,16 @@ const DefectiveReports: React.FC = () => {
 
     const payload = {
       equipment_id: (form.category === "Hardware" || form.category === "Peripheral")
-                      ? (form.equipment_id || null)
-                      : null,
-      reported_by:  form.reported_by || null,
-      category:     form.category,
-      title:        sanitize(form.title),
-      description:  sanitize(form.description),
-      severity:     form.severity,
-      status:       form.status,
-      resolved_at:  (form.status === "Resolved" || form.status === "Closed") && form.resolved_at
-                      ? new Date(form.resolved_at).toISOString()
-                      : null,
+                      ? (form.equipment_id || null) : null,
+      reported_by:   form.reported_by   || null,
+      department_id: form.department_id || null,
+      category:      form.category,
+      title:         sanitize(form.title),
+      description:   sanitize(form.description),
+      severity:      form.severity,
+      status:        form.status,
+      resolved_at:   (form.status === "Resolved" || form.status === "Closed") && form.resolved_at
+                       ? new Date(form.resolved_at).toISOString() : null,
     };
 
     if (modalMode === "add") {
@@ -360,7 +378,7 @@ const DefectiveReports: React.FC = () => {
     fetchReports();
   };
 
-  // ── Shared styles ──────────────────────────────────────────────────────────
+  // ── Styles ─────────────────────────────────────────────────────────────────
   const inputStyle: React.CSSProperties = {
     width: "100%", padding: "0.5rem 0.75rem", borderRadius: 8,
     border: "1px solid #e2e8f0", fontSize: 13, fontFamily: "'Poppins', sans-serif",
@@ -385,13 +403,27 @@ const DefectiveReports: React.FC = () => {
         @keyframes drSlideUp { from { transform: translateY(16px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
         .dr-filter { padding: 0.4rem 0.65rem; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; font-size: 12px; font-family: 'Poppins', sans-serif; color: #475569; outline: none; cursor: pointer; }
         .dr-filter:focus { border-color: #0a4c86; }
-        .dr-category-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
-        @media (max-width: 540px) { .dr-category-grid { grid-template-columns: 1fr 1fr; } }
-        .dr-cat-btn { padding: 0.5rem 0.4rem; border-radius: 8px; border: 1.5px solid #e2e8f0; background: #f8fafc; cursor: pointer; font-size: 11px; font-family: 'Poppins', sans-serif; font-weight: 600; display: flex; flex-direction: column; align-items: center; gap: 4px; transition: all 0.15s; }
-        .dr-cat-btn:hover { border-color: #94a3b8; background: #f1f5f9; }
+
+        /* ── Category pill selector ── */
+        .dr-cat-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+        .dr-cat-pill {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 6px 14px; border-radius: 999px;
+          border: 1.5px solid #e2e8f0; background: #f8fafc;
+          cursor: pointer; font-size: 12px; font-family: 'Poppins', sans-serif;
+          font-weight: 600; color: #64748b; transition: all 0.15s;
+          white-space: nowrap; user-select: none;
+        }
+        .dr-cat-pill:hover { border-color: #94a3b8; background: #f1f5f9; }
+        .dr-cat-pill.active-hw  { border-color: #0a4c86; background: rgba(10,76,134,0.08);  color: #0a4c86; }
+        .dr-cat-pill.active-sw  { border-color: #7c3aed; background: rgba(124,58,237,0.08); color: #7c3aed; }
+        .dr-cat-pill.active-net { border-color: #0891b2; background: rgba(6,182,212,0.08);  color: #0891b2; }
+        .dr-cat-pill.active-per { border-color: #ca8a04; background: rgba(234,179,8,0.10);  color: #a16207; }
+        .dr-cat-pill.active-oth { border-color: #64748b; background: rgba(100,116,139,0.08);color: #475569; }
+
         .dr-detail-row { display: flex; gap: 8px; font-size: 13px; padding: 0.5rem 0; border-bottom: 1px solid #f1f5f9; }
         .dr-detail-row:last-child { border-bottom: none; }
-        .dr-detail-label { font-size: 12px; font-weight: 600; color: #64748b; min-width: 120px; flex-shrink: 0; }
+        .dr-detail-label { font-size: 12px; font-weight: 600; color: #64748b; min-width: 130px; flex-shrink: 0; }
       `}</style>
 
       <div className="dr-root" style={{ fontFamily: "'Poppins', sans-serif", color: "#0f172a" }}>
@@ -480,6 +512,7 @@ const DefectiveReports: React.FC = () => {
                     { label: "Title",       field: "title"      as SortField },
                     { label: "Category",    field: "category"   as SortField },
                     { label: "Equipment",   field: null },
+                    { label: "Department",  field: null },
                     { label: "Reported By", field: null },
                     { label: "Severity",    field: "severity"   as SortField },
                     { label: "Status",      field: "status"     as SortField },
@@ -501,12 +534,12 @@ const DefectiveReports: React.FC = () => {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={8} style={{ padding: "2.5rem", textAlign: "center", color: "#94a3b8" }}>Loading…</td></tr>
+                  <tr><td colSpan={9} style={{ padding: "2.5rem", textAlign: "center", color: "#94a3b8" }}>Loading…</td></tr>
                 ) : paginated.length === 0 ? (
-                  <tr><td colSpan={8} style={{ padding: "2.5rem", textAlign: "center", color: "#94a3b8" }}>No defective reports found.</td></tr>
+                  <tr><td colSpan={9} style={{ padding: "2.5rem", textAlign: "center", color: "#94a3b8" }}>No defective reports found.</td></tr>
                 ) : paginated.map(r => (
                   <tr key={r.id} className="dr-row" style={{ borderBottom: "1px solid #f1f5f9", transition: "background 0.15s" }}>
-                    <td style={{ padding: "0.75rem 1rem", fontWeight: 600, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</td>
+                    <td style={{ padding: "0.75rem 1rem", fontWeight: 600, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</td>
                     <td style={{ padding: "0.75rem 1rem" }}><CategoryBadge category={r.category} /></td>
                     <td style={{ padding: "0.75rem 1rem" }}>
                       {r.equipment_name
@@ -514,6 +547,15 @@ const DefectiveReports: React.FC = () => {
                             <div style={{ fontWeight: 600, fontSize: 13 }}>{r.equipment_name}</div>
                             {r.equipment_serial && <div style={{ fontSize: 11, color: "#94a3b8", fontFamily: "monospace" }}>{r.equipment_serial}</div>}
                           </div>
+                        : <span style={{ color: "#cbd5e1" }}>—</span>
+                      }
+                    </td>
+                    {/* ── Department column ── */}
+                    <td style={{ padding: "0.75rem 1rem" }}>
+                      {r.department_name
+                        ? <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#0a4c86", background: "rgba(10,76,134,0.07)", padding: "2px 9px", borderRadius: 999 }}>
+                            <Building2 size={11} /> {r.department_name}
+                          </span>
                         : <span style={{ color: "#cbd5e1" }}>—</span>
                       }
                     </td>
@@ -528,8 +570,8 @@ const DefectiveReports: React.FC = () => {
                     <td style={{ padding: "0.75rem 1rem" }}>
                       <div style={{ display: "flex", gap: 6 }}>
                         {[
-                          { icon: <Eye size={14} />,    title: "View",   fn: () => openView(r),       color: BRAND },
-                          { icon: <Pencil size={14} />, title: "Edit",   fn: () => openEdit(r),       color: BRAND },
+                          { icon: <Eye size={14} />,    title: "View",   fn: () => openView(r),        color: BRAND },
+                          { icon: <Pencil size={14} />, title: "Edit",   fn: () => openEdit(r),        color: BRAND },
                           { icon: <Trash2 size={14} />, title: "Delete", fn: () => setDeleteTarget(r), color: "#dc2626" },
                         ].map((btn, i) => (
                           <button key={i} title={btn.title} className="icon-btn-dr" onClick={btn.fn}
@@ -583,30 +625,33 @@ const DefectiveReports: React.FC = () => {
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.9rem" }}>
 
-                {/* ── Category picker — visual button grid ── */}
+                {/* ── Category — pill selector (wraps cleanly, no overlap) ── */}
                 <div style={{ gridColumn: "span 2" }}>
                   <label style={labelStyle}>Category <span style={{ color: "#dc2626" }}>*</span></label>
-                  <div className="dr-category-grid">
+                  <div className="dr-cat-pills">
                     {CATEGORIES.map(cat => {
-                      const cfg = CATEGORY_CONFIG[cat];
                       const active = form.category === cat;
+                      const activeClass =
+                        cat === "Hardware"           ? "active-hw"  :
+                        cat === "Software"           ? "active-sw"  :
+                        cat === "Network / Internet" ? "active-net" :
+                        cat === "Peripheral"         ? "active-per" : "active-oth";
                       return (
-                        <button key={cat} type="button" className="dr-cat-btn"
+                        <button
+                          key={cat}
+                          type="button"
+                          className={`dr-cat-pill${active ? ` ${activeClass}` : ""}`}
                           onClick={() => handleCategoryChange(cat)}
-                          style={{
-                            borderColor: active ? cfg.color : "#e2e8f0",
-                            background:  active ? cfg.bg    : "#f8fafc",
-                            color:       active ? cfg.color : "#64748b",
-                          }}>
-                          {cfg.icon}
-                          <span>{cat}</span>
+                        >
+                          {CATEGORY_CONFIG[cat].icon}
+                          {cat}
                         </button>
                       );
                     })}
                   </div>
                 </div>
 
-                {/* Title — full width */}
+                {/* Title */}
                 <div style={{ gridColumn: "span 2" }}>
                   <label style={labelStyle}>Title <span style={{ color: "#dc2626" }}>*</span></label>
                   <input value={form.title}
@@ -623,14 +668,12 @@ const DefectiveReports: React.FC = () => {
                   <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2, textAlign: "right" }}>{form.title.length}/150</div>
                 </div>
 
-                {/* Equipment — only required for Hardware / Peripheral */}
-                {needsEquipment && (
+                {/* Equipment — required for Hardware / Peripheral */}
+                {needsEquipment ? (
                   <div style={{ gridColumn: "span 2" }}>
                     <label style={labelStyle}>
                       Equipment <span style={{ color: "#dc2626" }}>*</span>
-                      <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 400, marginLeft: 4 }}>
-                        (required for {form.category})
-                      </span>
+                      <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 400, marginLeft: 4 }}>(required for {form.category})</span>
                     </label>
                     <select value={form.equipment_id}
                       onChange={e => { setForm(f => ({ ...f, equipment_id: e.target.value })); setFormError(""); }}
@@ -643,10 +686,7 @@ const DefectiveReports: React.FC = () => {
                       ))}
                     </select>
                   </div>
-                )}
-
-                {/* Optional equipment for non-hardware categories */}
-                {!needsEquipment && (
+                ) : (
                   <div style={{ gridColumn: "span 2" }}>
                     <label style={labelStyle}>
                       Affected Equipment
@@ -665,7 +705,7 @@ const DefectiveReports: React.FC = () => {
                   </div>
                 )}
 
-                {/* Reported by */}
+                {/* Reported By */}
                 <div>
                   <label style={labelStyle}>Reported By <span style={{ color: "#dc2626" }}>*</span></label>
                   <select value={form.reported_by}
@@ -673,6 +713,17 @@ const DefectiveReports: React.FC = () => {
                     style={{ ...selectStyle, borderColor: formError && !form.reported_by ? "#fca5a5" : "#e2e8f0" }}>
                     <option value="">— Select user —</option>
                     {users.map(u => <option key={u.id} value={u.id}>{u.full_name} (@{u.username})</option>)}
+                  </select>
+                </div>
+
+                {/* Department */}
+                <div>
+                  <label style={labelStyle}>Department <span style={{ color: "#dc2626" }}>*</span></label>
+                  <select value={form.department_id}
+                    onChange={e => { setForm(f => ({ ...f, department_id: e.target.value })); setFormError(""); }}
+                    style={{ ...selectStyle, borderColor: formError && !form.department_id ? "#fca5a5" : "#e2e8f0" }}>
+                    <option value="">— Select department —</option>
+                    {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                   </select>
                 </div>
 
@@ -700,9 +751,9 @@ const DefectiveReports: React.FC = () => {
                   </select>
                 </div>
 
-                {/* Resolved date — only when Resolved / Closed */}
+                {/* Resolved date */}
                 {(form.status === "Resolved" || form.status === "Closed") && (
-                  <div>
+                  <div style={{ gridColumn: "span 2" }}>
                     <label style={labelStyle}>Resolved Date <span style={{ color: "#dc2626" }}>*</span></label>
                     <input type="date" value={form.resolved_at}
                       max={new Date().toISOString().slice(0, 10)}
@@ -712,7 +763,7 @@ const DefectiveReports: React.FC = () => {
                   </div>
                 )}
 
-                {/* Description — full width */}
+                {/* Description */}
                 <div style={{ gridColumn: "span 2" }}>
                   <label style={labelStyle}>
                     Description <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 400 }}>(optional)</span>
@@ -769,6 +820,7 @@ const DefectiveReports: React.FC = () => {
               <div style={{ display: "flex", flexDirection: "column" }}>
                 {[
                   { label: "Equipment",   value: selected.equipment_name ? `${selected.equipment_name}${selected.equipment_serial ? ` — ${selected.equipment_serial}` : ""}` : "—" },
+                  { label: "Department",  value: selected.department_name ?? "—" },
                   { label: "Reported By", value: selected.reporter_name ?? "—" },
                   { label: "Filed",       value: new Date(selected.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) },
                   { label: "Resolved",    value: selected.resolved_at ? new Date(selected.resolved_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "—" },
