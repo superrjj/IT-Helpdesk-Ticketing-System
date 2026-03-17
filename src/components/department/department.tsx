@@ -37,10 +37,10 @@ const PAGE_SIZE = 8;
 // ── Status badge ───────────────────────────────────────────────────────────────
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const map: Record<string, { bg: string; color: string }> = {
-    Active:       { bg: "rgba(22,163,74,0.12)",   color: "#15803d" },
-    Defective:    { bg: "rgba(220,38,38,0.12)",   color: "#b91c1c" },
-    "Under Repair":{ bg: "rgba(234,179,8,0.12)",  color: "#a16207" },
-    Retired:      { bg: "rgba(100,116,139,0.12)", color: "#475569" },
+    Active:         { bg: "rgba(22,163,74,0.12)",   color: "#15803d" },
+    Defective:      { bg: "rgba(220,38,38,0.12)",   color: "#b91c1c" },
+    "Under Repair": { bg: "rgba(234,179,8,0.12)",   color: "#a16207" },
+    Retired:        { bg: "rgba(100,116,139,0.12)", color: "#475569" },
   };
   const s = map[status] ?? { bg: "rgba(100,116,139,0.12)", color: "#475569" };
   return (
@@ -53,6 +53,17 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
     </span>
   );
 };
+
+// ── Friendly error mapper ──────────────────────────────────────────────────────
+function friendlyError(msg: string): string {
+  if (msg.includes("departments_name_key") || msg.includes("unique constraint"))
+    return "A department with that name already exists. Please use a different name.";
+  if (msg.includes("foreign key"))
+    return "Cannot complete this action because related records exist.";
+  if (msg.includes("not-null") || msg.includes("null value"))
+    return "A required field is missing. Please fill in all required fields.";
+  return msg;
+}
 
 // ── Main component ─────────────────────────────────────────────────────────────
 const Departments: React.FC = () => {
@@ -80,7 +91,7 @@ const Departments: React.FC = () => {
       .select(`id, name, description, location, created_at, equipment:equipment(count)`)
       .order(sortField, { ascending: sortDir === "asc" });
 
-    if (error) { showToast(error.message, "error"); setLoading(false); return; }
+    if (error) { showToast(friendlyError(error.message), "error"); setLoading(false); return; }
 
     const mapped: Department[] = (data ?? []).map((d: any) => ({
       ...d,
@@ -135,7 +146,7 @@ const Departments: React.FC = () => {
       .from("equipment")
       .select("id, name, type, brand, status, serial_number")
       .eq("department_id", d.id);
-    if (error) showToast(error.message, "error");
+    if (error) showToast(friendlyError(error.message), "error");
     setEquipment(data ?? []);
     setEqLoading(false);
   };
@@ -146,14 +157,17 @@ const Departments: React.FC = () => {
   const handleSubmit = async () => {
     if (!form.name.trim()) { setFormError("Department name is required."); return; }
 
-    // Check uniqueness
+    // Client-side duplicate check (case-insensitive)
     const dupQuery = supabase
       .from("departments")
       .select("id")
       .ilike("name", form.name.trim());
     if (modalMode === "edit" && selected) dupQuery.neq("id", selected.id);
     const { data: dup } = await dupQuery;
-    if (dup && dup.length > 0) { setFormError("Department name already exists."); return; }
+    if (dup && dup.length > 0) {
+      setFormError("A department with that name already exists. Please use a different name.");
+      return;
+    }
 
     setSubmitting(true);
     if (modalMode === "add") {
@@ -162,16 +176,25 @@ const Departments: React.FC = () => {
         description: form.description.trim(),
         location: form.location.trim(),
       });
-      if (error) { showToast(error.message, "error"); }
-      else { showToast("Department added successfully.", "success"); }
+      if (error) {
+        // Catch any race-condition duplicate that slipped past the client check
+        setFormError(friendlyError(error.message));
+        setSubmitting(false);
+        return;
+      }
+      showToast(`Department "${form.name.trim()}" added successfully.`, "success");
     } else if (modalMode === "edit" && selected) {
       const { error } = await supabase.from("departments").update({
         name: form.name.trim(),
         description: form.description.trim(),
         location: form.location.trim(),
       }).eq("id", selected.id);
-      if (error) { showToast(error.message, "error"); }
-      else { showToast("Department updated successfully.", "success"); }
+      if (error) {
+        setFormError(friendlyError(error.message));
+        setSubmitting(false);
+        return;
+      }
+      showToast(`Department "${form.name.trim()}" updated successfully.`, "success");
     }
     setSubmitting(false);
     closeModal();
@@ -181,7 +204,7 @@ const Departments: React.FC = () => {
   // ── Delete ───────────────────────────────────────────────────────────────────
   const handleDelete = async (d: Department) => {
     if ((d.equipment_count ?? 0) > 0) {
-      showToast("Cannot delete department because equipment is assigned.", "error");
+      showToast("Cannot delete this department because it has equipment assigned. Reassign or remove the equipment first.", "error");
       return;
     }
     setDeleteTarget(d);
@@ -190,8 +213,8 @@ const Departments: React.FC = () => {
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     const { error } = await supabase.from("departments").delete().eq("id", deleteTarget.id);
-    if (error) showToast(error.message, "error");
-    else showToast("Department deleted.", "success");
+    if (error) showToast(friendlyError(error.message), "error");
+    else showToast(`Department "${deleteTarget.name}" deleted.`, "success");
     setDeleteTarget(null);
     fetchDepartments();
   };
@@ -214,7 +237,6 @@ const Departments: React.FC = () => {
   const labelStyle: React.CSSProperties = {
     fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 4, display: "block",
   };
-
 
   return (
     <>
@@ -240,6 +262,7 @@ const Departments: React.FC = () => {
             color:      toast.type === "success" ? "#15803d" : "#b91c1c",
             border: `1px solid ${toast.type === "success" ? "#bbf7d0" : "#fecaca"}`,
             boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
+            maxWidth: 380,
           }}>
             {toast.msg}
           </div>
@@ -290,10 +313,10 @@ const Departments: React.FC = () => {
                   {[
                     { label: "Department Name", field: "name" as SortField },
                     { label: "Description",     field: null },
-                    { label: "Location",         field: null },
-                    { label: "Equipment",        field: null },
-                    { label: "Created",          field: "created_at" as SortField },
-                    { label: "Actions",          field: null },
+                    { label: "Location",        field: null },
+                    { label: "Equipment",       field: null },
+                    { label: "Created",         field: "created_at" as SortField },
+                    { label: "Actions",         field: null },
                   ].map(col => (
                     <th
                       key={col.label}
@@ -340,9 +363,9 @@ const Departments: React.FC = () => {
                     <td style={{ padding: "0.75rem 1rem" }}>
                       <div style={{ display: "flex", gap: 6 }}>
                         {[
-                          { icon: <Eye size={14} />,    title: "View equipment",  fn: () => openView(d),   color: "#0a4c86" },
-                          { icon: <Pencil size={14} />, title: "Edit",            fn: () => openEdit(d),   color: "#0a4c86" },
-                          { icon: <Trash2 size={14} />, title: "Delete",          fn: () => handleDelete(d), color: "#dc2626" },
+                          { icon: <Eye size={14} />,    title: "View equipment", fn: () => openView(d),     color: "#0a4c86" },
+                          { icon: <Pencil size={14} />, title: "Edit",           fn: () => openEdit(d),     color: "#0a4c86" },
+                          { icon: <Trash2 size={14} />, title: "Delete",         fn: () => handleDelete(d), color: "#dc2626" },
                         ].map((btn, i) => (
                           <button key={i} title={btn.title} className="icon-btn" onClick={btn.fn}
                             style={{
@@ -430,10 +453,14 @@ const Departments: React.FC = () => {
                   <input
                     value={form.name}
                     onChange={e => { setForm(f => ({ ...f, name: e.target.value })); setFormError(""); }}
-                    placeholder="e.g. IT Department"
+                    placeholder="e.g. CENRO"
                     style={{ ...inputStyle, borderColor: formError ? "#fca5a5" : "#e2e8f0" }}
                   />
-                  {formError && <p style={{ fontSize: 11, color: "#dc2626", marginTop: 4 }}>{formError}</p>}
+                  {formError && (
+                    <p style={{ fontSize: 11, color: "#dc2626", marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
+                      <AlertTriangle size={11} /> {formError}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label style={labelStyle}>Description</label>

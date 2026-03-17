@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Sidebar from "./sidebar";
 import Header from "./header";
 import Departments from "../department/department";
+import Equipment from "../equipment/equipment";
 import UserAccounts from "../accounts/user-accounts";
 
 type StatCardProps = {
@@ -64,7 +65,7 @@ const DashboardHome: React.FC = () => (
       </div>
 
       <div style={{ background: "#ffffff", borderRadius: 18, padding: "1.2rem 1.3rem", boxShadow: "0 18px 40px rgba(15,23,42,0.08)", border: "1px solid #e5e7eb" }}>
-        <h2 style={{ fontSize: 14, fontWeight: 600, color: "#111827", marginBottom: "0.8rem" }}>Equipment per department</h2>
+        <h2 style={{ fontSize: 14, fontWeight: 600, color: "#111827", marginBottom: "0.8rem" }}>Equipment Per Department</h2>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, color: "#111827" }}>
           <thead>
             <tr style={{ textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
@@ -95,7 +96,7 @@ const DashboardHome: React.FC = () => (
     {/* Right column */}
     <section style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
       <div style={{ background: "#ffffff", borderRadius: 18, padding: "1.2rem 1.3rem", boxShadow: "0 18px 40px rgba(15,23,42,0.08)", border: "1px solid #e5e7eb" }}>
-        <h2 style={{ fontSize: 14, fontWeight: 600, color: "#111827", marginBottom: "0.8rem" }}>Recent repair activities</h2>
+        <h2 style={{ fontSize: 14, fontWeight: 600, color: "#111827", marginBottom: "0.8rem" }}>Recent Repair Activities</h2>
         <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "0.65rem", fontSize: 13 }}>
           {[
             { equipment: "Printer – City Mayor's Office", detail: "Paper jam cleared, test print OK",      status: "Fixed",       date: "Mar 10" },
@@ -139,7 +140,7 @@ const Dashboard: React.FC = () => {
   const renderPage = () => {
     switch (activeIndex) {
       case 0: return <DashboardHome />;
-      case 1: return <ComingSoon label="Equipment" />;
+      case 1: return <Equipment />;
       case 2: return <Departments />;
       case 3: return <ComingSoon label="Defective Reports" />;
       case 4: return <ComingSoon label="Repairs" />;
