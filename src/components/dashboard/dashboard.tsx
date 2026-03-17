@@ -2,8 +2,10 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "./sidebar";
 import Header from "./header";
-import Departments from "../department/department";
 import Equipment from "../equipment/equipment";
+import Departments from "../department/department";
+import DefectiveReports from "../defective-reports/defective-reports";
+import Repairs from "../repairs/repairs";
 import UserAccounts from "../accounts/user-accounts";
 
 type StatCardProps = {
@@ -13,10 +15,10 @@ type StatCardProps = {
 };
 
 const accentColorMap: Record<NonNullable<StatCardProps["accent"]>, string> = {
-  blue: "#0a4c86",
-  red: "#dc2626",
+  blue:   "#0a4c86",
+  red:    "#dc2626",
   yellow: "#ca8a04",
-  green: "#16a34a",
+  green:  "#16a34a",
 };
 
 const cardShadow =
@@ -45,23 +47,21 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, accent = "blue" }) =>
   );
 };
 
-
 const ComingSoon: React.FC<{ label: string }> = ({ label }) => (
   <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1, color: "#94a3b8", fontSize: 14 }}>
     <span><strong>{label}</strong> — this page is under construction.</span>
   </div>
 );
 
-
 const DashboardHome: React.FC = () => (
   <main style={{ display: "grid", gridTemplateColumns: "2.1fr 1.2fr", gap: "1.2rem" }}>
     {/* Left column */}
     <section style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "0.9rem" }}>
-        <StatCard label="Total equipment"  value={0} accent="blue"   />
-        <StatCard label="Defective devices" value={0}  accent="red"    />
-        <StatCard label="Under repair"      value={0}  accent="yellow" />
-        <StatCard label="Active equipment"  value={0} accent="green" />
+        <StatCard label="Total equipment"   value={0} accent="blue"   />
+        <StatCard label="Defective devices" value={0} accent="red"    />
+        <StatCard label="Under repair"      value={0} accent="yellow" />
+        <StatCard label="Active equipment"  value={0} accent="green"  />
       </div>
 
       <div style={{ background: "#ffffff", borderRadius: 18, padding: "1.2rem 1.3rem", boxShadow: "0 18px 40px rgba(15,23,42,0.08)", border: "1px solid #e5e7eb" }}>
@@ -76,10 +76,10 @@ const DashboardHome: React.FC = () => (
           </thead>
           <tbody>
             {[
-              { name: "POSO", total: 40, defective: 3, repair: 2 },
+              { name: "POSO",  total: 40, defective: 3, repair: 2 },
               { name: "CENRO", total: 18, defective: 1, repair: 0 },
-              { name: "CEEMO",    total: 22, defective: 2, repair: 1 },
-              { name: "CHO",  total: 24, defective: 2, repair: 2 },
+              { name: "CEEMO", total: 22, defective: 2, repair: 1 },
+              { name: "CHO",   total: 24, defective: 2, repair: 2 },
             ].map(row => (
               <tr key={row.name} style={{ borderBottom: "1px solid #f3f4f6" }}>
                 <td style={{ padding: "0.55rem 0.35rem", fontWeight: 500 }}>{row.name}</td>
@@ -99,10 +99,10 @@ const DashboardHome: React.FC = () => (
         <h2 style={{ fontSize: 14, fontWeight: 600, color: "#111827", marginBottom: "0.8rem" }}>Recent Repair Activities</h2>
         <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "0.65rem", fontSize: 13 }}>
           {[
-            { equipment: "Printer – City Mayor's Office", detail: "Paper jam cleared, test print OK",      status: "Fixed",       date: "Mar 10" },
-            { equipment: "CPU – City Agriculture Office",          detail: "Power supply replacement ongoing",      status: "Under Repair", date: "Mar 09" },
-            { equipment: "Monitor – City Legal Office",           detail: "Intermittent flicker reported",         status: "Pending",      date: "Mar 09" },
-            { equipment: "Printer – City Health Office",   detail: "Scheduled maintenance completed",       status: "Fixed",        date: "Mar 08" },
+            { equipment: "Printer – City Mayor's Office",  detail: "Paper jam cleared, test print OK",      status: "Fixed",        date: "Mar 10" },
+            { equipment: "CPU – City Agriculture Office",  detail: "Power supply replacement ongoing",      status: "Under Repair",  date: "Mar 09" },
+            { equipment: "Monitor – City Legal Office",    detail: "Intermittent flicker reported",         status: "Pending",       date: "Mar 09" },
+            { equipment: "Printer – City Health Office",   detail: "Scheduled maintenance completed",       status: "Fixed",         date: "Mar 08" },
           ].map(item => (
             <li key={item.equipment + item.date} style={{ padding: "0.65rem 0.7rem", borderRadius: 12, background: "#f9fafb", border: "1px solid #e5e7eb", display: "flex", flexDirection: "column", gap: 2 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
@@ -126,7 +126,6 @@ const DashboardHome: React.FC = () => (
   </main>
 );
 
-
 const Dashboard: React.FC = () => {
   const [activeIndex, setActiveIndex] = useState(0);
   const navigate = useNavigate();
@@ -142,8 +141,8 @@ const Dashboard: React.FC = () => {
       case 0: return <DashboardHome />;
       case 1: return <Equipment />;
       case 2: return <Departments />;
-      case 3: return <ComingSoon label="Defective Reports" />;
-      case 4: return <ComingSoon label="Repairs" />;
+      case 3: return <DefectiveReports />;
+      case 4: return <Repairs />;
       case 5: return <ComingSoon label="Repair History" />;
       case 6: return <ComingSoon label="Reports" />;
       case 7: return <UserAccounts />;

@@ -8,6 +8,10 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY as string
 );
 
+const labelStyle: React.CSSProperties = {
+    fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 4, display: "block",
+  };
+
 type Role = "Admin" | "Staff";
 type ModalMode = "add" | "edit" | null;
 
@@ -550,22 +554,22 @@ export default function UserAccounts() {
 
             <div className="ua-modal-grid">
               <div>
-                <label style={{ fontSize: 12, fontWeight: 800, color: "#475569" }}>Username *</label>
+                <label style={labelStyle}>Username <span style={{ color: "#dc2626" }}>*</span></label>
                 <input value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} style={{ width: "100%", padding: "0.55rem 0.7rem", borderRadius: 10, border: "1px solid #e2e8f0", background: "#f8fafc" }} />
               </div>
               <div>
-                <label style={{ fontSize: 12, fontWeight: 800, color: "#475569" }}>Role *</label>
+                <label style={labelStyle}>Role <span style={{ color: "#dc2626" }}>*</span></label>
                 <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value as Role }))} style={{ width: "100%", padding: "0.55rem 0.7rem", borderRadius: 10, border: "1px solid #e2e8f0", background: "#f8fafc" }}>
                   <option value="Staff">Staff</option>
                   <option value="Admin">Admin</option>
                 </select>
               </div>
               <div className="ua-span2">
-                <label style={{ fontSize: 12, fontWeight: 800, color: "#475569" }}>Full name *</label>
+                <label style={labelStyle}>Full name <span style={{ color: "#dc2626" }}>*</span></label>
                 <input value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))} style={{ width: "100%", padding: "0.55rem 0.7rem", borderRadius: 10, border: "1px solid #e2e8f0", background: "#f8fafc" }} />
               </div>
               <div className="ua-span2">
-                <label style={{ fontSize: 12, fontWeight: 800, color: "#475569" }}>Email *</label>
+                <label style={labelStyle}>Email <span style={{ color: "#dc2626" }}>*</span></label>
                 <input value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} style={{ width: "100%", padding: "0.55rem 0.7rem", borderRadius: 10, border: "1px solid #e2e8f0", background: "#f8fafc" }} />
               </div>
 
@@ -582,11 +586,11 @@ export default function UserAccounts() {
               {(modalMode === "add" || resetPw) && (
                 <>
                   <div>
-                    <label style={{ fontSize: 12, fontWeight: 800, color: "#475569" }}>Password *</label>
+                    <label style={labelStyle}>Password <span style={{ color: "#dc2626" }}>*</span></label>
                     <input type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} style={{ width: "100%", padding: "0.55rem 0.7rem", borderRadius: 10, border: "1px solid #e2e8f0", background: "#f8fafc" }} />
                   </div>
                   <div>
-                    <label style={{ fontSize: 12, fontWeight: 800, color: "#475569" }}>Confirm *</label>
+                    <label style={labelStyle}>Confirm Password <span style={{ color: "#dc2626" }}>*</span></label>
                     <input type="password" value={form.confirmPassword} onChange={e => setForm(f => ({ ...f, confirmPassword: e.target.value }))} style={{ width: "100%", padding: "0.55rem 0.7rem", borderRadius: 10, border: "1px solid #e2e8f0", background: "#f8fafc" }} />
                   </div>
                 </>
