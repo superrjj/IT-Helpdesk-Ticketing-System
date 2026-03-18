@@ -278,7 +278,7 @@ const Header: React.FC<HeaderProps> = ({ currentUserName }) => {
               alignItems: "center",
               justifyContent: "center",
               color: "#fff",
-              fontSize: 15,
+              fontSize: 18,
               fontWeight: 600,
             }}
           >

@@ -6,181 +6,149 @@ import {
   ChevronLeft, ChevronRight, Wrench,
 } from "lucide-react";
 
-// ── Supabase client ────────────────────────────────────────────────────────────
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL as string,
   import.meta.env.VITE_SUPABASE_ANON_KEY as string
 );
 
-// ── Types ──────────────────────────────────────────────────────────────────────
 type RepairStatus = "Pending" | "In Progress" | "Completed" | "Cancelled";
 type SortField    = "status" | "created_at" | "started_at" | "completed_at";
 type SortDir      = "asc" | "desc";
 type ModalMode    = "add" | "edit" | "view" | null;
 
 type Repair = {
-  id:           string;
-  report_id:    string | null;
-  equipment_id: string | null;
-  assigned_to:  string | null;
-  diagnosis:    string;
-  action_taken: string;
-  status:       RepairStatus;
-  cost:         number | null;
-  started_at:   string | null;
-  completed_at: string | null;
-  created_at:   string;
-  updated_at:   string;
+  id:             string;
+  file_report_id: string | null;
+  assigned_to:    string | null;
+  problem:        string | null;
+  action_taken:   string;
+  status:         RepairStatus;
+  started_at:     string | null;
+  completed_at:   string | null;
+  created_at:     string;
+  updated_at:     string;
   // joined
-  equipment_name?:   string;
-  equipment_serial?: string;
-  report_title?:     string;
-  technician_name?:  string;
+  technician_name?: string;
+  ticket_number?:   string;
+  ticket_title?:    string;
 };
 
-type EquipmentOption = { id: string; name: string; serial_number: string };
-type UserOption      = { id: string; full_name: string; username: string };
-type ReportOption    = { id: string; title: string; equipment_id: string | null };
+type TicketOption = { id: string; ticket_number: string; title: string };
+type UserOption   = { id: string; full_name: string; username: string };
 
 type FormState = {
-  report_id:    string;
-  equipment_id: string;
-  assigned_to:  string;
-  diagnosis:    string;
-  action_taken: string;
-  status:       RepairStatus;
-  cost:         string;
-  started_at:   string;
-  completed_at: string;
+  file_report_id: string;
+  assigned_to:    string;
+  problem:        string;
+  action_taken:   string;
+  status:         RepairStatus;
+  started_at:     string;
+  completed_at:   string;
 };
 
 const BRAND     = "#0a4c86";
 const PAGE_SIZE = 10;
 const REPAIR_STATUSES: RepairStatus[] = ["Pending", "In Progress", "Completed", "Cancelled"];
 
-// ── Security: sanitize free-text ──────────────────────────────────────────────
 function sanitize(val: string): string {
   return val
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/&(?!amp;|lt;|gt;|quot;|#)/g, "&amp;")
-    .trim();
+    .replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/&(?!amp;|lt;|gt;|quot;|#)/g, "&amp;").trim();
 }
 
-// ── Validation ────────────────────────────────────────────────────────────────
 function validateForm(form: FormState): string {
-  if (!form.equipment_id)
-    return "Please select the equipment being repaired.";
-  if (!form.assigned_to)
-    return "Please assign a technician.";
-  if (!REPAIR_STATUSES.includes(form.status))
-    return "Invalid status selected.";
-  if (form.diagnosis.trim().length > 2000)
-    return "Diagnosis must be 2000 characters or less.";
-  if (form.action_taken.trim().length > 2000)
-    return "Action taken must be 2000 characters or less.";
-  if (form.cost !== "" && form.cost !== null) {
-    const n = parseFloat(form.cost);
-    if (isNaN(n) || n < 0)       return "Cost must be a positive number.";
-    if (n > 9_999_999.99)        return "Cost value is too large.";
-  }
+  if (!form.file_report_id) return "Please select a ticket.";
+  if (!form.assigned_to) return "Please assign a technician.";
+  if (!REPAIR_STATUSES.includes(form.status)) return "Invalid status selected.";
+  if (form.action_taken.trim().length > 2000) return "Action taken must be 2000 characters or less.";
+  if (form.problem.trim().length > 500) return "Problem must be 500 characters or less.";
   if (form.started_at && form.completed_at) {
     if (new Date(form.completed_at) < new Date(form.started_at))
-      return "Completed date cannot be before the start date.";
+      return "End date cannot be before the start date.";
   }
-  if ((form.status === "Completed") && !form.completed_at)
-    return "Please set a completion date for Completed repairs.";
+  if (form.status === "Completed" && !form.completed_at)
+    return "Please set an end date for Completed repairs.";
   if ((form.status === "In Progress" || form.status === "Completed") && !form.started_at)
     return "Please set a start date for In Progress / Completed repairs.";
   return "";
 }
 
 const emptyForm = (): FormState => ({
-  report_id:    "",
-  equipment_id: "",
-  assigned_to:  "",
-  diagnosis:    "",
-  action_taken: "",
-  status:       "Pending",
-  cost:         "",
-  started_at:   "",
-  completed_at: "",
+  file_report_id: "",
+  assigned_to:    "",
+  problem:        "",
+  action_taken:   "",
+  status:         "Pending",
+  started_at:     "",
+  completed_at:   "",
 });
 
-// ── Friendly DB error mapper ──────────────────────────────────────────────────
 function friendlyError(msg: string): string {
-  if (msg.includes("foreign key"))
-    return "Cannot complete — a referenced record no longer exists.";
-  if (msg.includes("not-null") || msg.includes("null value"))
-    return "A required field is missing.";
-  if (msg.includes("unique"))
-    return "A duplicate record already exists.";
+  if (msg.includes("foreign key")) return "Cannot complete — a referenced record no longer exists.";
+  if (msg.includes("not-null") || msg.includes("null value")) return "A required field is missing.";
+  if (msg.includes("unique")) return "A duplicate record already exists.";
   return msg;
 }
 
-// ── Status badge ──────────────────────────────────────────────────────────────
+const statusMeta: Record<RepairStatus, { bg: string; color: string; dot: string }> = {
+  "Pending":     { bg: "rgba(100,116,139,0.10)", color: "#475569", dot: "#94a3b8" },
+  "In Progress": { bg: "rgba(234,179,8,0.12)",   color: "#a16207", dot: "#eab308" },
+  "Completed":   { bg: "rgba(22,163,74,0.10)",   color: "#15803d", dot: "#16a34a" },
+  "Cancelled":   { bg: "rgba(220,38,38,0.10)",   color: "#b91c1c", dot: "#dc2626" },
+};
+
 const RepairStatusBadge: React.FC<{ status: string }> = ({ status }) => {
-  const map: Record<string, { bg: string; color: string }> = {
-    "Pending":     { bg: "rgba(100,116,139,0.10)", color: "#475569" },
-    "In Progress": { bg: "rgba(234,179,8,0.12)",   color: "#a16207" },
-    "Completed":   { bg: "rgba(22,163,74,0.10)",   color: "#15803d" },
-    "Cancelled":   { bg: "rgba(220,38,38,0.10)",   color: "#b91c1c" },
-  };
-  const s = map[status] ?? { bg: "rgba(100,116,139,0.10)", color: "#475569" };
+  const s = statusMeta[status as RepairStatus] ?? statusMeta["Pending"];
   return (
     <span style={{
+      display: "inline-flex", alignItems: "center", gap: 5,
       padding: "2px 9px", borderRadius: 999, fontSize: 11,
       fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
       background: s.bg, color: s.color,
-    }}>{status}</span>
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: "50%", background: s.dot, flexShrink: 0 }} />
+      {status}
+    </span>
   );
 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 const fmtDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "—";
 
-const fmtCost = (cost: number | null) =>
-  cost != null ? `₱${cost.toLocaleString("en-PH", { minimumFractionDigits: 2 })}` : "—";
-
-// ── Main component ────────────────────────────────────────────────────────────
 const Repairs: React.FC = () => {
-  const [repairs, setRepairs]       = useState<Repair[]>([]);
-  const [equipment, setEquipment]   = useState<EquipmentOption[]>([]);
-  const [users, setUsers]           = useState<UserOption[]>([]);
-  const [reports, setReports]       = useState<ReportOption[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [search, setSearch]         = useState("");
+  const [repairs, setRepairs]           = useState<Repair[]>([]);
+  const [tickets, setTickets]           = useState<TicketOption[]>([]);
+  const [assignedTicketIds, setAssignedTicketIds] = useState<Set<string>>(new Set());
+  const [users, setUsers]               = useState<UserOption[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [search, setSearch]             = useState("");
   const [filterStatus, setFilterStatus] = useState("All");
-  const [sortField, setSortField]   = useState<SortField>("created_at");
-  const [sortDir, setSortDir]       = useState<SortDir>("desc");
-  const [page, setPage]             = useState(1);
-  const [modalMode, setModalMode]   = useState<ModalMode>(null);
-  const [selected, setSelected]     = useState<Repair | null>(null);
+  const [sortField, setSortField]       = useState<SortField>("created_at");
+  const [sortDir, setSortDir]           = useState<SortDir>("desc");
+  const [page, setPage]                 = useState(1);
+  const [modalMode, setModalMode]       = useState<ModalMode>(null);
+  const [selected, setSelected]         = useState<Repair | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Repair | null>(null);
-  const [form, setForm]             = useState<FormState>(emptyForm());
-  const [formError, setFormError]   = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [toast, setToast]           = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const [form, setForm]                 = useState<FormState>(emptyForm());
+  const [formError, setFormError]       = useState("");
+  const [submitting, setSubmitting]     = useState(false);
+  const [toast, setToast]               = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
-  // ── Toast ─────────────────────────────────────────────────────────────────
   const showToast = (msg: string, type: "success" | "error") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3500);
   };
 
-  // ── Fetch ─────────────────────────────────────────────────────────────────
   const fetchRepairs = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("repairs")
       .select(`
-        id, report_id, equipment_id, assigned_to,
-        diagnosis, action_taken, status, cost,
+        id, file_report_id, assigned_to,
+        problem, action_taken, status,
         started_at, completed_at, created_at, updated_at,
-        equipment ( name, serial_number ),
-        defective_reports ( title ),
-        user_accounts ( full_name )
+        user_accounts ( full_name ),
+        file_reports ( ticket_number, title )
       `)
       .order(sortField, { ascending: sortDir === "asc" });
 
@@ -188,38 +156,49 @@ const Repairs: React.FC = () => {
       showToast(friendlyError(error.message), "error");
       setRepairs([]);
     } else {
-      setRepairs((data ?? []).map((r: any) => ({
+      const mapped = (data ?? []).map((r: any) => ({
         ...r,
-        equipment_name:   r.equipment?.name           ?? null,
-        equipment_serial: r.equipment?.serial_number  ?? null,
-        report_title:     r.defective_reports?.title  ?? null,
-        technician_name:  r.user_accounts?.full_name  ?? null,
-      })));
+        technician_name: r.user_accounts?.full_name    ?? null,
+        ticket_number:   r.file_reports?.ticket_number ?? null,
+        ticket_title:    r.file_reports?.title         ?? null,
+      }));
+      setRepairs(mapped);
+      // Build set of already-assigned ticket IDs
+      const ids = new Set<string>(
+        mapped
+          .filter((r: Repair) => r.file_report_id)
+          .map((r: Repair) => r.file_report_id as string)
+      );
+      setAssignedTicketIds(ids);
     }
     setLoading(false);
   };
 
   const fetchDropdowns = async () => {
-    const [{ data: eq }, { data: ua }, { data: dr }] = await Promise.all([
-      supabase.from("equipment").select("id, name, serial_number").order("name"),
-      supabase.from("user_accounts").select("id, full_name, username").eq("is_active", true).order("full_name"),
-      supabase.from("defective_reports").select("id, title, equipment_id").in("status", ["Open", "In Progress"]).order("created_at", { ascending: false }),
+    const [{ data: tix }, { data: ua }] = await Promise.all([
+      supabase
+        .from("file_reports")
+        .select("id, ticket_number, title")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("user_accounts")
+        .select("id, full_name, username")
+        .eq("is_active", true)
+        .order("full_name"),
     ]);
-    setEquipment((eq ?? []) as EquipmentOption[]);
+    setTickets((tix ?? []) as TicketOption[]);
     setUsers((ua ?? []) as UserOption[]);
-    setReports((dr ?? []) as ReportOption[]);
   };
 
   useEffect(() => { fetchRepairs(); }, [sortField, sortDir]);
   useEffect(() => { fetchDropdowns(); }, []);
 
-  // ── Filter + paginate ─────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return repairs.filter(r => {
       const matchSearch = !q || [
-        r.equipment_name ?? "", r.report_title ?? "",
-        r.technician_name ?? "", r.diagnosis, r.action_taken,
+        r.ticket_number ?? "", r.technician_name ?? "",
+        r.action_taken,  r.problem ?? "", r.ticket_title ?? "",
       ].some(v => v.toLowerCase().includes(q));
       const matchStatus = filterStatus === "All" || r.status === filterStatus;
       return matchSearch && matchStatus;
@@ -232,7 +211,6 @@ const Repairs: React.FC = () => {
   useEffect(() => setPage(1), [search, filterStatus]);
   useEffect(() => { if (page > totalPages) setPage(totalPages); }, [page, totalPages]);
 
-  // ── Sort ──────────────────────────────────────────────────────────────────
   const toggleSort = (field: SortField) => {
     if (sortField === field) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortField(field); setSortDir("asc"); }
@@ -244,7 +222,6 @@ const Repairs: React.FC = () => {
     </span>
   );
 
-  // ── Stat counts ───────────────────────────────────────────────────────────
   const counts = useMemo(() => ({
     total:      repairs.length,
     pending:    repairs.filter(r => r.status === "Pending").length,
@@ -253,64 +230,61 @@ const Repairs: React.FC = () => {
     cancelled:  repairs.filter(r => r.status === "Cancelled").length,
   }), [repairs]);
 
-  // ── Modal helpers ─────────────────────────────────────────────────────────
   const closeModal = () => {
-    setModalMode(null);
-    setSelected(null);
-    setForm(emptyForm());
-    setFormError("");
-    setSubmitting(false);
+    setModalMode(null); setSelected(null);
+    setForm(emptyForm()); setFormError(""); setSubmitting(false);
   };
 
-  const openAdd = () => { closeModal(); setModalMode("add"); };
-
+  const openAdd  = () => { closeModal(); setModalMode("add"); };
+  const openView = (r: Repair) => { setSelected(r); setModalMode("view"); };
   const openEdit = (r: Repair) => {
     closeModal();
     setSelected(r);
     setForm({
-      report_id:    r.report_id    ?? "",
-      equipment_id: r.equipment_id ?? "",
-      assigned_to:  r.assigned_to  ?? "",
-      diagnosis:    r.diagnosis,
-      action_taken: r.action_taken,
-      status:       r.status,
-      cost:         r.cost != null ? String(r.cost) : "",
-      started_at:   r.started_at   ? r.started_at.slice(0, 10)   : "",
-      completed_at: r.completed_at ? r.completed_at.slice(0, 10) : "",
+      file_report_id: r.file_report_id ?? "",
+      assigned_to:    r.assigned_to    ?? "",
+      problem:        r.problem        ?? "",
+      action_taken:   r.action_taken,
+      status:         r.status,
+      started_at:     r.started_at   ? r.started_at.slice(0, 10)   : "",
+      completed_at:   r.completed_at ? r.completed_at.slice(0, 10) : "",
     });
     setModalMode("edit");
   };
 
-  const openView = (r: Repair) => { setSelected(r); setModalMode("view"); };
+  // Tickets available in the dropdown:
+  // - all unassigned tickets
+  // - plus the one currently linked to THIS repair (so it stays selectable when editing)
+  const availableTickets = useMemo(() => {
+    return tickets.filter(t => {
+      const isAssignedElsewhere = assignedTicketIds.has(t.id) && t.id !== selected?.file_report_id;
+      return !isAssignedElsewhere;
+    });
+  }, [tickets, assignedTicketIds, selected]);
 
-  // ── When report is selected, auto-fill equipment ──────────────────────────
-  const handleReportChange = (reportId: string) => {
-    const report = reports.find(r => r.id === reportId);
+  const handleTicketChange = (ticketId: string) => {
+    const ticket = tickets.find(t => t.id === ticketId);
     setForm(f => ({
       ...f,
-      report_id:    reportId,
-      equipment_id: report?.equipment_id ?? f.equipment_id,
+      file_report_id: ticketId,
+      problem:        ticket ? ticket.title : f.problem,
     }));
     setFormError("");
   };
 
-  // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     const err = validateForm(form);
     if (err) { setFormError(err); return; }
-
     setSubmitting(true);
 
     const payload = {
-      report_id:    form.report_id    || null,
-      equipment_id: form.equipment_id || null,
-      assigned_to:  form.assigned_to  || null,
-      diagnosis:    sanitize(form.diagnosis),
-      action_taken: sanitize(form.action_taken),
-      status:       form.status,
-      cost:         form.cost !== "" ? parseFloat(form.cost) : null,
-      started_at:   form.started_at   ? new Date(form.started_at).toISOString()   : null,
-      completed_at: form.completed_at ? new Date(form.completed_at).toISOString() : null,
+      file_report_id: form.file_report_id || null,
+      assigned_to:    form.assigned_to    || null,
+      problem:        sanitize(form.problem),
+      action_taken:   sanitize(form.action_taken),
+      status:         form.status,
+      started_at:     form.started_at   ? new Date(form.started_at).toISOString()   : null,
+      completed_at:   form.completed_at ? new Date(form.completed_at).toISOString() : null,
     };
 
     if (modalMode === "add") {
@@ -328,7 +302,6 @@ const Repairs: React.FC = () => {
     fetchRepairs();
   };
 
-  // ── Delete ────────────────────────────────────────────────────────────────
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     const { error } = await supabase.from("repairs").delete().eq("id", deleteTarget.id);
@@ -338,7 +311,6 @@ const Repairs: React.FC = () => {
     fetchRepairs();
   };
 
-  // ── Shared styles ─────────────────────────────────────────────────────────
   const inputStyle: React.CSSProperties = {
     width: "100%", padding: "0.5rem 0.75rem", borderRadius: 8,
     border: "1px solid #e2e8f0", fontSize: 13, fontFamily: "'Poppins', sans-serif",
@@ -370,7 +342,7 @@ const Repairs: React.FC = () => {
 
       <div className="rp-root" style={{ fontFamily: "'Poppins', sans-serif", color: "#0f172a" }}>
 
-        {/* ── Toast ── */}
+        {/* Toast */}
         {toast && (
           <div style={{
             position: "fixed", top: 20, right: 24, zIndex: 9999,
@@ -382,7 +354,7 @@ const Repairs: React.FC = () => {
           }}>{toast.msg}</div>
         )}
 
-        {/* ── Header ── */}
+        {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
           <div>
             <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, letterSpacing: 2, display: "flex", alignItems: "center", gap: 8 }}>
@@ -400,7 +372,7 @@ const Repairs: React.FC = () => {
           </button>
         </div>
 
-        {/* ── Stat cards ── */}
+        {/* Stat cards */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "0.75rem", marginBottom: "1.2rem" }}>
           {[
             { label: "Total",       value: counts.total,      color: BRAND     },
@@ -419,7 +391,7 @@ const Repairs: React.FC = () => {
           ))}
         </div>
 
-        {/* ── Table card ── */}
+        {/* Table card */}
         <div style={{ background: "#fff", borderRadius: 18, border: "1px solid #e2e8f0", boxShadow: "0 4px 24px rgba(15,23,42,0.07)", overflow: "hidden" }}>
 
           {/* Toolbar */}
@@ -444,13 +416,12 @@ const Repairs: React.FC = () => {
               <thead>
                 <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
                   {([
-                    { label: "Equipment",   field: null },
-                    { label: "Linked Report", field: null },
+                    { label: "Ticket No.",  field: null },
+                    { label: "Problem",     field: null },
                     { label: "Technician",  field: null },
                     { label: "Status",      field: "status"       as SortField },
-                    { label: "Cost",        field: null },
-                    { label: "Started",     field: "started_at"   as SortField },
-                    { label: "Completed",   field: "completed_at" as SortField },
+                    { label: "Start Date",  field: "started_at"   as SortField },
+                    { label: "End Date",    field: "completed_at" as SortField },
                     { label: "Created",     field: "created_at"   as SortField },
                     { label: "Actions",     field: null },
                   ] as { label: string; field: SortField | null }[]).map(col => (
@@ -469,23 +440,22 @@ const Repairs: React.FC = () => {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={9} style={{ padding: "2.5rem", textAlign: "center", color: "#94a3b8" }}>Loading…</td></tr>
+                  <tr><td colSpan={8} style={{ padding: "2.5rem", textAlign: "center", color: "#94a3b8" }}>Loading…</td></tr>
                 ) : paginated.length === 0 ? (
-                  <tr><td colSpan={9} style={{ padding: "2.5rem", textAlign: "center", color: "#94a3b8" }}>No repair jobs found.</td></tr>
+                  <tr><td colSpan={8} style={{ padding: "2.5rem", textAlign: "center", color: "#94a3b8" }}>No repair jobs found.</td></tr>
                 ) : paginated.map(r => (
                   <tr key={r.id} className="rp-row" style={{ borderBottom: "1px solid #f1f5f9", transition: "background 0.15s" }}>
                     <td style={{ padding: "0.75rem 1rem" }}>
-                      {r.equipment_name
-                        ? <div>
-                            <div style={{ fontWeight: 600 }}>{r.equipment_name}</div>
-                            {r.equipment_serial && <div style={{ fontSize: 11, color: "#94a3b8", fontFamily: "monospace" }}>{r.equipment_serial}</div>}
-                          </div>
+                      {r.ticket_number
+                        ? <span style={{ fontFamily: "monospace", fontSize: 11, fontWeight: 700, background: "rgba(10,76,134,0.07)", color: BRAND, padding: "2px 8px", borderRadius: 6, whiteSpace: "nowrap" }}>
+                            {r.ticket_number}
+                          </span>
                         : <span style={{ color: "#cbd5e1" }}>—</span>
                       }
                     </td>
-                    <td style={{ padding: "0.75rem 1rem", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {r.report_title
-                        ? <span style={{ padding: "2px 7px", borderRadius: 6, background: "rgba(220,38,38,0.07)", color: "#b91c1c", fontSize: 12, fontWeight: 600 }}>{r.report_title}</span>
+                    <td style={{ padding: "0.75rem 1rem", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {r.problem
+                        ? <span style={{ fontWeight: 500 }}>{r.problem}</span>
                         : <span style={{ color: "#cbd5e1" }}>—</span>
                       }
                     </td>
@@ -493,17 +463,14 @@ const Repairs: React.FC = () => {
                       {r.technician_name ?? <span style={{ color: "#cbd5e1" }}>—</span>}
                     </td>
                     <td style={{ padding: "0.75rem 1rem" }}><RepairStatusBadge status={r.status} /></td>
-                    <td style={{ padding: "0.75rem 1rem", color: "#475569", whiteSpace: "nowrap" }}>
-                      {fmtCost(r.cost)}
-                    </td>
                     <td style={{ padding: "0.75rem 1rem", color: "#64748b", whiteSpace: "nowrap" }}>{fmtDate(r.started_at)}</td>
                     <td style={{ padding: "0.75rem 1rem", color: "#64748b", whiteSpace: "nowrap" }}>{fmtDate(r.completed_at)}</td>
                     <td style={{ padding: "0.75rem 1rem", color: "#64748b", whiteSpace: "nowrap" }}>{fmtDate(r.created_at)}</td>
                     <td style={{ padding: "0.75rem 1rem" }}>
                       <div style={{ display: "flex", gap: 6 }}>
                         {[
-                          { icon: <Eye size={14} />,    title: "View",   fn: () => openView(r),       color: BRAND },
-                          { icon: <Pencil size={14} />, title: "Edit",   fn: () => openEdit(r),       color: BRAND },
+                          { icon: <Eye size={14} />,    title: "View",   fn: () => openView(r),        color: BRAND },
+                          { icon: <Pencil size={14} />, title: "Edit",   fn: () => openEdit(r),        color: BRAND },
                           { icon: <Trash2 size={14} />, title: "Delete", fn: () => setDeleteTarget(r), color: "#dc2626" },
                         ].map((btn, i) => (
                           <button key={i} title={btn.title} className="icon-btn-rp" onClick={btn.fn}
@@ -546,7 +513,7 @@ const Repairs: React.FC = () => {
         {/* ══ Add / Edit Modal ══ */}
         {(modalMode === "add" || modalMode === "edit") && (
           <div className="modal-overlay-rp" style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}>
-            <div className="modal-box-rp" style={{ background: "#fff", borderRadius: 18, padding: "1.6rem", width: "100%", maxWidth: 580, maxHeight: "calc(100vh - 32px)", overflowY: "auto", boxShadow: "0 24px 60px rgba(15,23,42,0.2)" }}>
+            <div className="modal-box-rp" style={{ background: "#fff", borderRadius: 18, padding: "1.6rem", width: "100%", maxWidth: 520, maxHeight: "calc(100vh - 32px)", overflowY: "auto", boxShadow: "0 24px 60px rgba(15,23,42,0.2)" }}>
 
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.2rem" }}>
                 <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>
@@ -557,38 +524,46 @@ const Repairs: React.FC = () => {
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.9rem" }}>
 
-                {/* Linked defective report — optional, full width */}
+                {/* Ticket selector — full width */}
                 <div style={{ gridColumn: "span 2" }}>
                   <label style={labelStyle}>
-                    Linked Defective Report <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 400 }}>(optional)</span>
+                    Ticket No. <span style={{ color: "#dc2626" }}>*</span>
                   </label>
-                  <select value={form.report_id} onChange={e => handleReportChange(e.target.value)} style={selectStyle}>
-                    <option value="">— None (proactive repair) —</option>
-                    {reports.map(r => <option key={r.id} value={r.id}>{r.title}</option>)}
+                  <select
+                    value={form.file_report_id}
+                    onChange={e => handleTicketChange(e.target.value)}
+                    style={{ ...selectStyle, borderColor: formError && !form.file_report_id ? "#fca5a5" : "#e2e8f0" }}
+                  >
+                    <option value="">— Select a ticket —</option>
+                    {availableTickets.map(t => (
+                      <option key={t.id} value={t.id}>
+                        {t.ticket_number} — {t.title}
+                      </option>
+                    ))}
                   </select>
-                  {form.report_id && (
+                  {form.file_report_id && (
                     <p style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
-                      Equipment has been auto-filled from the selected report.
+                      Problem auto-filled from ticket title — you may edit it below.
                     </p>
                   )}
                 </div>
 
-                {/* Equipment — full width */}
+                {/* Problem — full width */}
                 <div style={{ gridColumn: "span 2" }}>
-                  <label style={labelStyle}>Equipment <span style={{ color: "#dc2626" }}>*</span></label>
-                  <select value={form.equipment_id}
-                    onChange={e => { setForm(f => ({ ...f, equipment_id: e.target.value })); setFormError(""); }}
-                    style={{ ...selectStyle, borderColor: formError && !form.equipment_id ? "#fca5a5" : "#e2e8f0" }}>
-                    <option value="">— Select equipment —</option>
-                    {equipment.map(eq => (
-                      <option key={eq.id} value={eq.id}>
-                        {eq.name}{eq.serial_number ? ` (${eq.serial_number})` : ""}
-                      </option>
-                    ))}
-                  </select>
+                  <label style={labelStyle}>
+                    Problem <span style={{ color: "#dc2626" }}>*</span>
+                  </label>
+                  <input
+                    value={form.problem}
+                    onChange={e => { setForm(f => ({ ...f, problem: e.target.value })); setFormError(""); }}
+                    placeholder="Describe the problem…"
+                    maxLength={500}
+                    style={{ ...inputStyle, borderColor: formError && !form.problem.trim() ? "#fca5a5" : "#e2e8f0" }}
+                  />
+                  <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2, textAlign: "right" }}>{form.problem.length}/500</div>
                 </div>
 
-                {/* Assigned technician */}
+                {/* Technician */}
                 <div>
                   <label style={labelStyle}>Assigned Technician <span style={{ color: "#dc2626" }}>*</span></label>
                   <select value={form.assigned_to}
@@ -606,10 +581,9 @@ const Repairs: React.FC = () => {
                     onChange={e => {
                       const s = e.target.value as RepairStatus;
                       setForm(f => ({
-                        ...f,
-                        status: s,
-                        started_at:   (s === "Pending") ? "" : f.started_at,
-                        completed_at: (s !== "Completed") ? "" : f.completed_at,
+                        ...f, status: s,
+                        started_at:   s === "Pending" ? "" : f.started_at,
+                        completed_at: s !== "Completed" ? "" : f.completed_at,
                       }));
                       setFormError("");
                     }}
@@ -618,7 +592,7 @@ const Repairs: React.FC = () => {
                   </select>
                 </div>
 
-                {/* Start date — shown when In Progress or Completed */}
+                {/* Start date */}
                 {(form.status === "In Progress" || form.status === "Completed") && (
                   <div>
                     <label style={labelStyle}>Start Date <span style={{ color: "#dc2626" }}>*</span></label>
@@ -629,10 +603,10 @@ const Repairs: React.FC = () => {
                   </div>
                 )}
 
-                {/* Completion date — shown only when Completed */}
+                {/* End date */}
                 {form.status === "Completed" && (
                   <div>
-                    <label style={labelStyle}>Completion Date <span style={{ color: "#dc2626" }}>*</span></label>
+                    <label style={labelStyle}>End Date <span style={{ color: "#dc2626" }}>*</span></label>
                     <input type="date" value={form.completed_at}
                       min={form.started_at || undefined} max={today}
                       onChange={e => { setForm(f => ({ ...f, completed_at: e.target.value })); setFormError(""); }}
@@ -641,48 +615,22 @@ const Repairs: React.FC = () => {
                   </div>
                 )}
 
-                {/* Cost */}
-                <div>
-                  <label style={labelStyle}>
-                    Repair Cost (₱) <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 400 }}>(optional)</span>
-                  </label>
-                  <input type="number" min="0" step="0.01" value={form.cost}
-                    onChange={e => setForm(f => ({ ...f, cost: e.target.value }))}
-                    placeholder="0.00"
-                    style={inputStyle}
-                  />
-                </div>
-
-                {/* Diagnosis — full width */}
-                <div style={{ gridColumn: "span 2" }}>
-                  <label style={labelStyle}>
-                    Diagnosis <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 400 }}>(optional)</span>
-                  </label>
-                  <textarea value={form.diagnosis}
-                    onChange={e => setForm(f => ({ ...f, diagnosis: e.target.value }))}
-                    placeholder="What was found to be wrong with the equipment…"
-                    rows={3} maxLength={2000}
-                    style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }}
-                  />
-                  <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2, textAlign: "right" }}>{form.diagnosis.length}/2000</div>
-                </div>
-
-                {/* Action taken — full width */}
+                {/* Action taken */}
                 <div style={{ gridColumn: "span 2" }}>
                   <label style={labelStyle}>
                     Action Taken <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 400 }}>(optional)</span>
                   </label>
                   <textarea value={form.action_taken}
                     onChange={e => setForm(f => ({ ...f, action_taken: e.target.value }))}
-                    placeholder="Describe what was done to fix the equipment…"
-                    rows={3} maxLength={2000}
+                    placeholder="Describe what was done to fix the issue…"
+                    rows={4} maxLength={2000}
                     style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }}
                   />
                   <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2, textAlign: "right" }}>{form.action_taken.length}/2000</div>
                 </div>
+
               </div>
 
-              {/* Validation error */}
               {formError && (
                 <div style={{ marginTop: "0.85rem", padding: "0.55rem 0.8rem", borderRadius: 8, background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
                   <AlertTriangle size={13} /> {formError}
@@ -704,52 +652,49 @@ const Repairs: React.FC = () => {
         {/* ══ View Modal ══ */}
         {modalMode === "view" && selected && (
           <div className="modal-overlay-rp" style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}>
-            <div className="modal-box-rp" style={{ background: "#fff", borderRadius: 18, padding: "1.6rem", width: "100%", maxWidth: 540, maxHeight: "calc(100vh - 32px)", overflowY: "auto", boxShadow: "0 24px 60px rgba(15,23,42,0.2)" }}>
+            <div className="modal-box-rp" style={{ background: "#fff", borderRadius: 18, padding: "1.6rem", width: "100%", maxWidth: 480, maxHeight: "calc(100vh - 32px)", overflowY: "auto", boxShadow: "0 24px 60px rgba(15,23,42,0.2)" }}>
 
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.2rem" }}>
                 <div>
                   <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, marginBottom: 6 }}>
-                    {selected.equipment_name ?? "Repair Job"}
+                    {selected.problem ?? "Repair Job"}
                   </h2>
-                  <RepairStatusBadge status={selected.status} />
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <RepairStatusBadge status={selected.status} />
+                    {selected.ticket_number && (
+                      <span style={{ fontSize: 11, color: BRAND, fontFamily: "monospace", fontWeight: 700, background: "rgba(10,76,134,0.07)", padding: "2px 8px", borderRadius: 6 }}>
+                        {selected.ticket_number}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <button onClick={closeModal} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", flexShrink: 0 }}><X size={18} /></button>
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column" }}>
+              <div style={{ display: "flex", flexDirection: "column", marginBottom: "1rem" }}>
                 {[
-                  { label: "Equipment",       value: selected.equipment_name ? `${selected.equipment_name}${selected.equipment_serial ? ` — ${selected.equipment_serial}` : ""}` : "—" },
-                  { label: "Linked Report",   value: selected.report_title ?? "—" },
-                  { label: "Technician",      value: selected.technician_name ?? "—" },
-                  { label: "Cost",            value: fmtCost(selected.cost) },
-                  { label: "Started",         value: fmtDate(selected.started_at) },
-                  { label: "Completed",       value: fmtDate(selected.completed_at) },
-                  { label: "Created",         value: fmtDate(selected.created_at) },
+                  { label: "Ticket No.",  value: selected.ticket_number ?? "—" },
+                  { label: "Problem",     value: selected.problem ?? "—" },
+                  { label: "Technician",  value: selected.technician_name ?? "—" },
+                  { label: "Start Date",  value: fmtDate(selected.started_at) },
+                  { label: "End Date",    value: fmtDate(selected.completed_at) },
+                  { label: "Created",     value: fmtDate(selected.created_at) },
                 ].map(row => (
                   <div key={row.label} className="rp-detail-row">
                     <span className="rp-detail-label">{row.label}</span>
                     <span style={{ color: "#0f172a" }}>{row.value}</span>
                   </div>
                 ))}
-
-                {selected.diagnosis && (
-                  <div style={{ marginTop: "1rem" }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>Diagnosis</div>
-                    <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "0.75rem", lineHeight: 1.7, color: "#374151", whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 13 }}>
-                      {selected.diagnosis}
-                    </div>
-                  </div>
-                )}
-
-                {selected.action_taken && (
-                  <div style={{ marginTop: "1rem" }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>Action Taken</div>
-                    <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "0.75rem", lineHeight: 1.7, color: "#374151", whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 13 }}>
-                      {selected.action_taken}
-                    </div>
-                  </div>
-                )}
               </div>
+
+              {selected.action_taken && (
+                <div style={{ marginBottom: "1rem" }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>Action Taken</div>
+                  <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "0.75rem", lineHeight: 1.7, color: "#374151", whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 13 }}>
+                    {selected.action_taken}
+                  </div>
+                </div>
+              )}
 
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: "1.4rem" }}>
                 <button onClick={() => { closeModal(); openEdit(selected); }}
@@ -774,7 +719,7 @@ const Repairs: React.FC = () => {
               </div>
               <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>Delete Repair Job?</h2>
               <p style={{ fontSize: 13, color: "#475569", marginBottom: "1.4rem" }}>
-                This will permanently delete the repair job for <strong>{deleteTarget.equipment_name ?? "this equipment"}</strong>. This action cannot be undone.
+                This will permanently delete this repair job. This action cannot be undone.
               </p>
               <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                 <button onClick={() => setDeleteTarget(null)}
@@ -789,6 +734,7 @@ const Repairs: React.FC = () => {
             </div>
           </div>
         )}
+
       </div>
     </>
   );

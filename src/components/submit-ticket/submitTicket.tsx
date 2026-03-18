@@ -3,9 +3,9 @@ import { createClient } from "@supabase/supabase-js";
 import {
   Plus, Pencil, Trash2, Eye, Search,
   ChevronUp, ChevronDown, X, AlertTriangle,
-  ChevronLeft, ChevronRight, ShieldAlert,
+  ChevronLeft, ChevronRight, FileText,
   Monitor, Cpu, Wifi, Plug, HelpCircle, Building2,
-  ArrowDownCircle, ArrowUpCircle,
+  Clock, CheckCircle, AlertCircle, Loader, User,
 } from "lucide-react";
 
 // ── Supabase client ────────────────────────────────────────────────────────────
@@ -15,52 +15,52 @@ const supabase = createClient(
 );
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-type Category    = "Hardware" | "Software" | "Network / Internet" | "Peripheral" | "Other";
-type ReportType   = "Incoming" | "Outgoing";
-type SortField   = "title" | "category" | "report_type" | "reported_date";
-type SortDir     = "asc" | "desc";
-type ModalMode   = "add" | "edit" | "view" | null;
+type IssueType = "Hardware" | "Software" | "Network / Internet" | "Peripheral" | "Other";
+type Priority  = "Low" | "Medium" | "High" | "Critical";
+type Status    = "Open" | "In Progress" | "Resolved" | "Closed";
+type SortField = "title" | "issue_type" | "priority" | "status" | "date_submitted";
+type SortDir   = "asc" | "desc";
+type ModalMode = "add" | "edit" | "view" | null;
 
 type FileReport = {
-  id:                    string;
-  equipment_name:        string;
-  reported_by_name:      string;
-  reported_by_department: string;
-  category:              Category;
-  title:                 string;
-  description:           string;
-  report_type:           ReportType;
-  reported_date:         string;
-  resolved_at:           string | null;
-  created_at:            string;
-  updated_at:            string;
+  id:             string;
+  employee_name:  string;
+  department_id:  string;
+  issue_type:     IssueType;
+  title:          string;
+  description:    string;
+  priority:       Priority;
+  status:         Status;
+  date_submitted: string;
+  created_at:     string;
+  updated_at:     string;
 };
 
 type Department = { id: string; name: string };
 
 type FormState = {
-  equipment_name:        string;
-  reported_by_name:      string;
-  reported_by_department: string;
-  category:              Category;
-  title:                 string;
-  description:           string;
-  report_type:           ReportType;
-  reported_date:         string;
-  resolved_at:           string;
+  employee_name:  string;
+  department_id:  string;
+  issue_type:     IssueType;
+  title:          string;
+  description:    string;
+  priority:       Priority;
+  status:         Status;
+  date_submitted: string;
 };
 
 const BRAND     = "#0a4c86";
 const PAGE_SIZE = 10;
 
-const CATEGORIES: Category[] = [
+const ISSUE_TYPES: IssueType[] = [
   "Hardware", "Software", "Network / Internet", "Peripheral", "Other",
 ];
 
-const REPORT_TYPES: ReportType[] = ["Incoming", "Outgoing"];
+const PRIORITIES: Priority[] = ["Low", "Medium", "High", "Critical"];
+const STATUSES: Status[]     = ["Open", "In Progress", "Resolved", "Closed"];
 
-// ── Category config ────────────────────────────────────────────────────────────
-const CATEGORY_CONFIG: Record<Category, {
+// ── Issue Type Config ──────────────────────────────────────────────────────────
+const ISSUE_TYPE_CONFIG: Record<IssueType, {
   icon: React.ReactNode;
   bg: string;
   activeBg: string;
@@ -74,7 +74,7 @@ const CATEGORY_CONFIG: Record<Category, {
   "Other":             { icon: <HelpCircle size={14}/>, bg: "#f8fafc", activeBg: "rgba(100,116,139,0.08)", color: "#475569", border: "#64748b" },
 };
 
-const CATEGORY_BADGE_CONFIG: Record<Category, { icon: React.ReactNode; bg: string; color: string }> = {
+const ISSUE_TYPE_BADGE_CONFIG: Record<IssueType, { icon: React.ReactNode; bg: string; color: string }> = {
   "Hardware":          { icon: <Cpu size={11} />,      bg: "rgba(10,76,134,0.09)",   color: "#0a4c86" },
   "Software":          { icon: <Monitor size={11} />,  bg: "rgba(124,58,237,0.09)",  color: "#7c3aed" },
   "Network / Internet":{ icon: <Wifi size={11} />,     bg: "rgba(6,182,212,0.09)",   color: "#0891b2" },
@@ -82,7 +82,23 @@ const CATEGORY_BADGE_CONFIG: Record<Category, { icon: React.ReactNode; bg: strin
   "Other":             { icon: <HelpCircle size={11}/>, bg: "rgba(100,116,139,0.09)", color: "#475569" },
 };
 
-// ── Sanitize ──────────────────────────────────────────────────────────────────
+// ── Priority Config ────────────────────────────────────────────────────────────
+const PRIORITY_CONFIG: Record<Priority, { bg: string; color: string }> = {
+  "Low":      { bg: "rgba(100,116,139,0.09)", color: "#475569" },
+  "Medium":   { bg: "rgba(234,179,8,0.11)",   color: "#a16207" },
+  "High":     { bg: "rgba(249,115,22,0.11)",  color: "#c2410c" },
+  "Critical": { bg: "rgba(220,38,38,0.11)",   color: "#b91c1c" },
+};
+
+// ── Status Config ──────────────────────────────────────────────────────────────
+const STATUS_CONFIG: Record<Status, { icon: React.ReactNode; bg: string; color: string }> = {
+  "Open":        { icon: <AlertCircle size={11} />, bg: "rgba(59,130,246,0.10)",  color: "#1d4ed8" },
+  "In Progress": { icon: <Loader size={11} />,      bg: "rgba(234,179,8,0.11)",   color: "#a16207" },
+  "Resolved":    { icon: <CheckCircle size={11} />, bg: "rgba(22,163,74,0.10)",   color: "#15803d" },
+  "Closed":      { icon: <CheckCircle size={11} />, bg: "rgba(100,116,139,0.09)", color: "#475569" },
+};
+
+// ── Sanitize ───────────────────────────────────────────────────────────────────
 function sanitize(val: string): string {
   return val
     .replace(/</g, "&lt;")
@@ -91,35 +107,38 @@ function sanitize(val: string): string {
     .trim();
 }
 
-// ── Validation ────────────────────────────────────────────────────────────────
+// ── Validation ─────────────────────────────────────────────────────────────────
 function validateForm(form: FormState): string {
   const title = form.title.trim();
   if (!title)              return "Title is required.";
-  if (title.length < 5)   return "Title must be at least 5 characters.";
-  if (title.length > 150) return "Title must be 150 characters or less.";
-  if (!form.equipment_name.trim()) return "Equipment name is required.";
-  if (form.equipment_name.trim().length > 100) return "Equipment name must be 100 characters or less.";
+  if (title.length < 5)    return "Title must be at least 5 characters.";
+  if (title.length > 150)  return "Title must be 150 characters or less.";
+  
+  if (!form.employee_name.trim()) return "Employee name is required.";
+  if (form.employee_name.trim().length > 100) return "Employee name must be 100 characters or less.";
+  
+  if (!form.department_id) return "Department is required.";
+  
   if (form.description.trim().length > 2000)
-                           return "Description must be 2000 characters or less.";
-  if (!form.reported_by_name.trim())      return "Reporter name is required.";
-  if (!form.reported_by_department)       return "Reporter department is required.";
-  if (!CATEGORIES.includes(form.category))  return "Invalid category selected.";
-  if (!form.reported_date) return "Reported date is required.";
-  if (form.report_type === "Outgoing" && !form.resolved_at)
-    return "Please set a resolved date for Outgoing reports.";
+    return "Description must be 2000 characters or less.";
+  
+  if (!ISSUE_TYPES.includes(form.issue_type)) return "Invalid issue type selected.";
+  if (!PRIORITIES.includes(form.priority))    return "Invalid priority selected.";
+  if (!STATUSES.includes(form.status))        return "Invalid status selected.";
+  if (!form.date_submitted) return "Date submitted is required.";
+  
   return "";
 }
 
 const emptyForm = (): FormState => ({
-  equipment_name:        "",
-  reported_by_name:      "",
-  reported_by_department: "",
-  category:              "Hardware",
-  title:                 "",
-  description:           "",
-  report_type:           "Incoming",
-  reported_date:         new Date().toISOString().slice(0, 10),
-  resolved_at:           "",
+  employee_name:  "",
+  department_id:  "",
+  issue_type:     "Hardware",
+  title:          "",
+  description:    "",
+  priority:       "Low",
+  status:         "Open",
+  date_submitted: new Date().toISOString().slice(0, 10),
 });
 
 function friendlyError(msg: string): string {
@@ -129,9 +148,9 @@ function friendlyError(msg: string): string {
   return msg;
 }
 
-// ── Badges ────────────────────────────────────────────────────────────────────
-const CategoryBadge: React.FC<{ category: string }> = ({ category }) => {
-  const cfg = CATEGORY_BADGE_CONFIG[category as Category]
+// ── Badges ─────────────────────────────────────────────────────────────────────
+const IssueTypeBadge: React.FC<{ type: string }> = ({ type }) => {
+  const cfg = ISSUE_TYPE_BADGE_CONFIG[type as IssueType]
     ?? { icon: <HelpCircle size={11} />, bg: "rgba(100,116,139,0.09)", color: "#475569" };
   return (
     <span style={{
@@ -140,36 +159,51 @@ const CategoryBadge: React.FC<{ category: string }> = ({ category }) => {
       fontWeight: 700, letterSpacing: "0.05em",
       background: cfg.bg, color: cfg.color,
     }}>
-      {cfg.icon} {category}
+      {cfg.icon} {type}
     </span>
   );
 };
 
-const ReportTypeBadge: React.FC<{ type: string }> = ({ type }) => {
-  const isIncoming = type === "Incoming";
+const PriorityBadge: React.FC<{ priority: string }> = ({ priority }) => {
+  const cfg = PRIORITY_CONFIG[priority as Priority]
+    ?? { bg: "rgba(100,116,139,0.09)", color: "#475569" };
   return (
     <span style={{
       display: "inline-flex", alignItems: "center", gap: 4,
       padding: "2px 9px", borderRadius: 999, fontSize: 11,
       fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
-      background: isIncoming ? "rgba(220,38,38,0.10)" : "rgba(22,163,74,0.10)",
-      color: isIncoming ? "#b91c1c" : "#15803d",
+      background: cfg.bg, color: cfg.color,
     }}>
-      {isIncoming ? <ArrowDownCircle size={11} /> : <ArrowUpCircle size={11} />}
-      {type}
+      {priority}
     </span>
   );
 };
 
-// ── Main component ────────────────────────────────────────────────────────────
-const FileReports: React.FC = () => {
+const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
+  const cfg = STATUS_CONFIG[status as Status]
+    ?? { icon: <AlertCircle size={11} />, bg: "rgba(100,116,139,0.09)", color: "#475569" };
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 4,
+      padding: "2px 9px", borderRadius: 999, fontSize: 11,
+      fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
+      background: cfg.bg, color: cfg.color,
+    }}>
+      {cfg.icon} {status}
+    </span>
+  );
+};
+
+// ── Main Component ─────────────────────────────────────────────────────────────
+const SubmitTicket: React.FC = () => {
   const [reports, setReports]         = useState<FileReport[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading]         = useState(true);
   const [search, setSearch]           = useState("");
-  const [filterCategory, setFilterCategory] = useState("All");
-  const [filterType, setFilterType]         = useState("All");
-  const [sortField, setSortField]     = useState<SortField>("reported_date");
+  const [filterIssueType, setFilterIssueType] = useState("All");
+  const [filterPriority, setFilterPriority]   = useState("All");
+  const [filterStatus, setFilterStatus]       = useState("All");
+  const [sortField, setSortField]     = useState<SortField>("date_submitted");
   const [sortDir, setSortDir]         = useState<SortDir>("desc");
   const [page, setPage]               = useState(1);
   const [modalMode, setModalMode]     = useState<ModalMode>(null);
@@ -218,19 +252,19 @@ const FileReports: React.FC = () => {
     const q = search.trim().toLowerCase();
     return reports.filter(r => {
       const matchSearch = !q || [
-        r.title, r.description, r.equipment_name,
-        r.reported_by_name, r.reported_by_department, r.category,
+        r.title, r.description, r.employee_name, r.issue_type,
       ].some(v => v.toLowerCase().includes(q));
-      const matchCat    = filterCategory === "All" || r.category === filterCategory;
-      const matchType   = filterType     === "All" || r.report_type === filterType;
-      return matchSearch && matchCat && matchType;
+      const matchIssueType = filterIssueType === "All" || r.issue_type === filterIssueType;
+      const matchPriority  = filterPriority  === "All" || r.priority    === filterPriority;
+      const matchStatus    = filterStatus    === "All" || r.status      === filterStatus;
+      return matchSearch && matchIssueType && matchPriority && matchStatus;
     });
-  }, [reports, search, filterCategory, filterType]);
+  }, [reports, search, filterIssueType, filterPriority, filterStatus]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  useEffect(() => setPage(1), [search, filterCategory, filterType]);
+  useEffect(() => setPage(1), [search, filterIssueType, filterPriority, filterStatus]);
   useEffect(() => { if (page > totalPages) setPage(totalPages); }, [page, totalPages]);
 
   // ── Sort ───────────────────────────────────────────────────────────────────
@@ -247,9 +281,11 @@ const FileReports: React.FC = () => {
 
   // ── Stat counts ────────────────────────────────────────────────────────────
   const counts = useMemo(() => ({
-    total:    reports.length,
-    incoming: reports.filter(r => r.report_type === "Incoming").length,
-    outgoing: reports.filter(r => r.report_type === "Outgoing").length,
+    total:      reports.length,
+    open:       reports.filter(r => r.status === "Open").length,
+    inProgress: reports.filter(r => r.status === "In Progress").length,
+    resolved:   reports.filter(r => r.status === "Resolved").length,
+    critical:   reports.filter(r => r.priority === "Critical").length,
   }), [reports]);
 
   // ── Modal helpers ──────────────────────────────────────────────────────────
@@ -261,22 +297,21 @@ const FileReports: React.FC = () => {
   const openEdit = (r: FileReport) => {
     closeModal(); setSelected(r);
     setForm({
-      equipment_name:        r.equipment_name,
-      reported_by_name:      r.reported_by_name,
-      reported_by_department: r.reported_by_department,
-      category:              r.category,
-      title:                 r.title,
-      description:           r.description,
-      report_type:           r.report_type,
-      reported_date:         r.reported_date.slice(0, 10),
-      resolved_at:           r.resolved_at ? r.resolved_at.slice(0, 10) : "",
+      employee_name:  r.employee_name,
+      department_id:  r.department_id,
+      issue_type:     r.issue_type,
+      title:          r.title,
+      description:    r.description,
+      priority:       r.priority,
+      status:         r.status,
+      date_submitted: r.date_submitted.slice(0, 10),
     });
     setModalMode("edit");
   };
   const openView = (r: FileReport) => { setSelected(r); setModalMode("view"); };
 
-  const handleCategoryChange = (cat: Category) => {
-    setForm(f => ({ ...f, category: cat }));
+  const handleIssueTypeChange = (type: IssueType) => {
+    setForm(f => ({ ...f, issue_type: type }));
     setFormError("");
   };
 
@@ -287,26 +322,24 @@ const FileReports: React.FC = () => {
     setSubmitting(true);
 
     const payload = {
-      equipment_name:        sanitize(form.equipment_name),
-      reported_by_name:      sanitize(form.reported_by_name),
-      reported_by_department: form.reported_by_department,
-      category:              form.category,
-      title:                 sanitize(form.title),
-      description:           sanitize(form.description),
-      report_type:           form.report_type,
-      reported_date:         new Date(form.reported_date).toISOString(),
-      resolved_at:           form.report_type === "Outgoing" && form.resolved_at
-                               ? new Date(form.resolved_at).toISOString() : null,
+      employee_name:  sanitize(form.employee_name),
+      department_id:  form.department_id,
+      issue_type:     form.issue_type,
+      title:          sanitize(form.title),
+      description:    sanitize(form.description),
+      priority:       form.priority,
+      status:         form.status,
+      date_submitted: new Date(form.date_submitted).toISOString(),
     };
 
     if (modalMode === "add") {
       const { error } = await supabase.from("file_reports").insert(payload);
       if (error) { setFormError(friendlyError(error.message)); setSubmitting(false); return; }
-      showToast("Report filed successfully.", "success");
+      showToast("Ticket filed successfully.", "success");
     } else if (modalMode === "edit" && selected) {
       const { error } = await supabase.from("file_reports").update(payload).eq("id", selected.id);
       if (error) { setFormError(friendlyError(error.message)); setSubmitting(false); return; }
-      showToast("Report updated successfully.", "success");
+      showToast("Ticket updated successfully.", "success");
     }
 
     setSubmitting(false);
@@ -319,7 +352,7 @@ const FileReports: React.FC = () => {
     if (!deleteTarget) return;
     const { error } = await supabase.from("file_reports").delete().eq("id", deleteTarget.id);
     if (error) showToast(friendlyError(error.message), "error");
-    else showToast(`Report "${deleteTarget.title}" deleted.`, "success");
+    else showToast(`Ticket "${deleteTarget.title}" deleted.`, "success");
     setDeleteTarget(null);
     fetchReports();
   };
@@ -345,18 +378,18 @@ const FileReports: React.FC = () => {
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
-        .dr-root, .dr-root * { box-sizing: border-box; }
-        .dr-row:hover { background: #f8fafc !important; }
-        .icon-btn-dr:hover { background: #f1f5f9 !important; }
-        .modal-overlay-dr { animation: drFadeIn 0.15s ease; }
-        @keyframes drFadeIn { from { opacity: 0 } to { opacity: 1 } }
-        .modal-box-dr { animation: drSlideUp 0.18s ease; }
-        @keyframes drSlideUp { from { transform: translateY(16px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
-        .dr-filter { padding: 0.4rem 0.65rem; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; font-size: 12px; font-family: 'Poppins', sans-serif; color: #475569; outline: none; cursor: pointer; }
-        .dr-filter:focus { border-color: #0a4c86; }
+        .ticket-root, .ticket-root * { box-sizing: border-box; }
+        .ticket-row:hover { background: #f8fafc !important; }
+        .icon-btn-ticket:hover { background: #f1f5f9 !important; }
+        .modal-overlay-ticket { animation: ticketFadeIn 0.15s ease; }
+        @keyframes ticketFadeIn { from { opacity: 0 } to { opacity: 1 } }
+        .modal-box-ticket { animation: ticketSlideUp 0.18s ease; }
+        @keyframes ticketSlideUp { from { transform: translateY(16px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+        .ticket-filter { padding: 0.4rem 0.65rem; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; font-size: 12px; font-family: 'Poppins', sans-serif; color: #475569; outline: none; cursor: pointer; }
+        .ticket-filter:focus { border-color: #0a4c86; }
 
-        .dr-cat-pills { display: flex; flex-wrap: wrap; gap: 8px; }
-        .dr-cat-pill {
+        .ticket-issue-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+        .ticket-issue-pill {
           display: inline-flex; align-items: center; gap: 6px;
           padding: 6px 14px; border-radius: 999px;
           border: 1.5px solid #e2e8f0; background: #f8fafc;
@@ -364,19 +397,19 @@ const FileReports: React.FC = () => {
           font-weight: 600; color: #64748b; transition: all 0.15s;
           white-space: nowrap; user-select: none;
         }
-        .dr-cat-pill:hover { border-color: #94a3b8; background: #f1f5f9; }
-        .dr-cat-pill.active-hw  { border-color: #0a4c86; background: rgba(10,76,134,0.08);  color: #0a4c86; }
-        .dr-cat-pill.active-sw  { border-color: #7c3aed; background: rgba(124,58,237,0.08); color: #7c3aed; }
-        .dr-cat-pill.active-net { border-color: #0891b2; background: rgba(6,182,212,0.08);  color: #0891b2; }
-        .dr-cat-pill.active-per { border-color: #ca8a04; background: rgba(234,179,8,0.10);  color: #a16207; }
-        .dr-cat-pill.active-oth { border-color: #64748b; background: rgba(100,116,139,0.08);color: #475569; }
+        .ticket-issue-pill:hover { border-color: #94a3b8; background: #f1f5f9; }
+        .ticket-issue-pill.active-hw  { border-color: #0a4c86; background: rgba(10,76,134,0.08);  color: #0a4c86; }
+        .ticket-issue-pill.active-sw  { border-color: #7c3aed; background: rgba(124,58,237,0.08); color: #7c3aed; }
+        .ticket-issue-pill.active-net { border-color: #0891b2; background: rgba(6,182,212,0.08);  color: #0891b2; }
+        .ticket-issue-pill.active-per { border-color: #ca8a04; background: rgba(234,179,8,0.10);  color: #a16207; }
+        .ticket-issue-pill.active-oth { border-color: #64748b; background: rgba(100,116,139,0.08);color: #475569; }
 
-        .dr-detail-row { display: flex; gap: 8px; font-size: 13px; padding: 0.5rem 0; border-bottom: 1px solid #f1f5f9; }
-        .dr-detail-row:last-child { border-bottom: none; }
-        .dr-detail-label { font-size: 12px; font-weight: 600; color: #64748b; min-width: 150px; flex-shrink: 0; }
+        .ticket-detail-row { display: flex; gap: 8px; font-size: 13px; padding: 0.5rem 0; border-bottom: 1px solid #f1f5f9; }
+        .ticket-detail-row:last-child { border-bottom: none; }
+        .ticket-detail-label { font-size: 12px; font-weight: 600; color: #64748b; min-width: 140px; flex-shrink: 0; }
       `}</style>
 
-      <div className="dr-root" style={{ fontFamily: "'Poppins', sans-serif", color: "#0f172a" }}>
+      <div className="ticket-root" style={{ fontFamily: "'Poppins', sans-serif", color: "#0f172a" }}>
 
         {/* ── Toast ── */}
         {toast && (
@@ -393,11 +426,11 @@ const FileReports: React.FC = () => {
         {/* ── Header ── */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
           <div>
-            <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, letterSpacing: 2, display: "flex", alignItems: "center", gap: 8 }}>
-              <ShieldAlert size={20} color="#dc2626" /> File Reports
+            <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, letterSpacing: 1, display: "flex", alignItems: "center", gap: 8 }}>
+              <FileText size={20} color={BRAND} /> Submit Ticket
             </h2>
             <p style={{ fontSize: 12, color: "#64748b", margin: "3px 0 0" }}>
-              Track incoming and outgoing equipment reports.
+              Report IT issues and track their resolution status.
             </p>
           </div>
           <button onClick={openAdd} style={{
@@ -406,25 +439,27 @@ const FileReports: React.FC = () => {
             background: BRAND, color: "#fff", fontSize: 13, fontWeight: 600,
             cursor: "pointer", fontFamily: "'Poppins', sans-serif",
           }}>
-            <Plus size={15} /> File Report
+            <Plus size={15} /> Submit Ticket
           </button>
         </div>
 
         {/* ── Stat cards ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.75rem", marginBottom: "1.2rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "0.75rem", marginBottom: "1.2rem" }}>
           {[
-            { label: "Total Reports", value: counts.total,    color: BRAND,     icon: <ShieldAlert size={18} /> },
-            { label: "Incoming",      value: counts.incoming, color: "#b91c1c", icon: <ArrowDownCircle size={18} /> },
-            { label: "Outgoing",      value: counts.outgoing, color: "#15803d", icon: <ArrowUpCircle size={18} /> },
+            { label: "Total Tickets",  value: counts.total,      color: BRAND,     icon: <FileText size={16} /> },
+            { label: "Open",           value: counts.open,       color: "#1d4ed8", icon: <AlertCircle size={16} /> },
+            { label: "In Progress",    value: counts.inProgress, color: "#a16207", icon: <Loader size={16} /> },
+            { label: "Resolved",       value: counts.resolved,   color: "#15803d", icon: <CheckCircle size={16} /> },
+            { label: "Critical",       value: counts.critical,   color: "#dc2626", icon: <AlertTriangle size={16} /> },
           ].map(c => (
-            <div key={c.label} style={{ background: "#fff", borderRadius: 14, padding: "1rem 1.2rem", border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(15,23,42,0.05)", display: "flex", alignItems: "center", gap: "1rem" }}>
-              <div style={{ width: 48, height: 48, borderRadius: 12, background: `${c.color}15`, display: "flex", alignItems: "center", justifyContent: "center", color: c.color }}>
-                {c.icon}
+            <div key={c.label} style={{ background: "#fff", borderRadius: 14, padding: "0.9rem 1rem", border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(15,23,42,0.05)", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: `${c.color}15`, display: "flex", alignItems: "center", justifyContent: "center", color: c.color }}>
+                  {c.icon}
+                </div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: c.color }}>{c.value}</div>
               </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>{c.label}</div>
-                <div style={{ fontSize: 28, fontWeight: 700, color: c.color }}>{c.value}</div>
-              </div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "#64748b", letterSpacing: "0.08em", textTransform: "uppercase" }}>{c.label}</div>
             </div>
           ))}
         </div>
@@ -436,16 +471,20 @@ const FileReports: React.FC = () => {
           <div style={{ padding: "0.9rem 1.2rem", borderBottom: "1px solid #f1f5f9", display: "flex", flexWrap: "wrap", gap: "0.65rem", alignItems: "center" }}>
             <div style={{ position: "relative", flex: "1 1 220px", maxWidth: 300 }}>
               <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search reports…"
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tickets…"
                 style={{ ...inputStyle, paddingLeft: 32 }} />
             </div>
-            <select className="dr-filter" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
-              <option value="All">All Categories</option>
-              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            <select className="ticket-filter" value={filterIssueType} onChange={e => setFilterIssueType(e.target.value)}>
+              <option value="All">All Issue Types</option>
+              {ISSUE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
-            <select className="dr-filter" value={filterType} onChange={e => setFilterType(e.target.value)}>
-              <option value="All">All Types</option>
-              {REPORT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            <select className="ticket-filter" value={filterPriority} onChange={e => setFilterPriority(e.target.value)}>
+              <option value="All">All Priorities</option>
+              {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+            <select className="ticket-filter" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+              <option value="All">All Statuses</option>
+              {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             <div style={{ marginLeft: "auto", fontSize: 12, color: "#64748b", whiteSpace: "nowrap" }}>
               Page {page}/{totalPages}
@@ -458,14 +497,13 @@ const FileReports: React.FC = () => {
               <thead>
                 <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
                   {([
-                    { label: "Title",       field: "title"         as SortField },
-                    { label: "Category",    field: "category"      as SortField },
-                    { label: "Equipment",   field: null },
-                    { label: "Reporter",    field: null },
+                    { label: "Title",       field: "title"          as SortField },
+                    { label: "Issue Type",  field: "issue_type"     as SortField },
+                    { label: "Employee",    field: null },
                     { label: "Department",  field: null },
-                    { label: "Type",        field: "report_type"   as SortField },
-                    { label: "Reported",    field: "reported_date" as SortField },
-                    { label: "Resolved",    field: null },
+                    { label: "Priority",    field: "priority"       as SortField },
+                    { label: "Status",      field: "status"         as SortField },
+                    { label: "Submitted",   field: "date_submitted" as SortField },
                     { label: "Actions",     field: null },
                   ] as { label: string; field: SortField | null }[]).map(col => (
                     <th key={col.label}
@@ -483,26 +521,23 @@ const FileReports: React.FC = () => {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={9} style={{ padding: "2.5rem", textAlign: "center", color: "#94a3b8" }}>Loading…</td></tr>
+                  <tr><td colSpan={8} style={{ padding: "2.5rem", textAlign: "center", color: "#94a3b8" }}>Loading…</td></tr>
                 ) : paginated.length === 0 ? (
-                  <tr><td colSpan={9} style={{ padding: "2.5rem", textAlign: "center", color: "#94a3b8" }}>No reports found.</td></tr>
+                  <tr><td colSpan={8} style={{ padding: "2.5rem", textAlign: "center", color: "#94a3b8" }}>No tickets found.</td></tr>
                 ) : paginated.map(r => (
-                  <tr key={r.id} className="dr-row" style={{ borderBottom: "1px solid #f1f5f9", transition: "background 0.15s" }}>
-                    <td style={{ padding: "0.75rem 1rem", fontWeight: 600, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</td>
-                    <td style={{ padding: "0.75rem 1rem" }}><CategoryBadge category={r.category} /></td>
-                    <td style={{ padding: "0.75rem 1rem", color: "#475569" }}>{r.equipment_name}</td>
-                    <td style={{ padding: "0.75rem 1rem", color: "#475569" }}>{r.reported_by_name}</td>
+                  <tr key={r.id} className="ticket-row" style={{ borderBottom: "1px solid #f1f5f9", transition: "background 0.15s" }}>
+                    <td style={{ padding: "0.75rem 1rem", fontWeight: 600, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</td>
+                    <td style={{ padding: "0.75rem 1rem" }}><IssueTypeBadge type={r.issue_type} /></td>
+                    <td style={{ padding: "0.75rem 1rem", color: "#475569" }}>{r.employee_name}</td>
                     <td style={{ padding: "0.75rem 1rem" }}>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#0a4c86", background: "rgba(10,76,134,0.07)", padding: "2px 9px", borderRadius: 999 }}>
-                        <Building2 size={11} /> {getDepartmentName(r.reported_by_department)}
+                        <Building2 size={11} /> {getDepartmentName(r.department_id)}
                       </span>
                     </td>
-                    <td style={{ padding: "0.75rem 1rem" }}><ReportTypeBadge type={r.report_type} /></td>
+                    <td style={{ padding: "0.75rem 1rem" }}><PriorityBadge priority={r.priority} /></td>
+                    <td style={{ padding: "0.75rem 1rem" }}><StatusBadge status={r.status} /></td>
                     <td style={{ padding: "0.75rem 1rem", color: "#64748b", whiteSpace: "nowrap" }}>
-                      {new Date(r.reported_date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
-                    </td>
-                    <td style={{ padding: "0.75rem 1rem", color: "#64748b", whiteSpace: "nowrap" }}>
-                      {r.resolved_at ? new Date(r.resolved_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : <span style={{ color: "#cbd5e1" }}>—</span>}
+                      {new Date(r.date_submitted).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
                     </td>
                     <td style={{ padding: "0.75rem 1rem" }}>
                       <div style={{ display: "flex", gap: 6 }}>
@@ -511,7 +546,7 @@ const FileReports: React.FC = () => {
                           { icon: <Pencil size={14} />, title: "Edit",   fn: () => openEdit(r),        color: BRAND },
                           { icon: <Trash2 size={14} />, title: "Delete", fn: () => setDeleteTarget(r), color: "#dc2626" },
                         ].map((btn, i) => (
-                          <button key={i} title={btn.title} className="icon-btn-dr" onClick={btn.fn}
+                          <button key={i} title={btn.title} className="icon-btn-ticket" onClick={btn.fn}
                             style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: btn.color, transition: "background 0.15s" }}>
                             {btn.icon}
                           </button>
@@ -550,38 +585,38 @@ const FileReports: React.FC = () => {
 
         {/* ══ Add / Edit Modal ══ */}
         {(modalMode === "add" || modalMode === "edit") && (
-          <div className="modal-overlay-dr" style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}>
-            <div className="modal-box-dr" style={{ background: "#fff", borderRadius: 18, padding: "1.6rem", width: "100%", maxWidth: 600, maxHeight: "calc(100vh - 32px)", overflowY: "auto", boxShadow: "0 24px 60px rgba(15,23,42,0.2)" }}>
+          <div className="modal-overlay-ticket" style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}>
+            <div className="modal-box-ticket" style={{ background: "#fff", borderRadius: 18, padding: "1.6rem", width: "100%", maxWidth: 600, maxHeight: "calc(100vh - 32px)", overflowY: "auto", boxShadow: "0 24px 60px rgba(15,23,42,0.2)" }}>
 
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.2rem" }}>
                 <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>
-                  {modalMode === "add" ? "File New Report" : "Edit Report"}
+                  {modalMode === "add" ? "Submit New Ticket" : "Edit Ticket"}
                 </h2>
                 <button onClick={closeModal} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8" }}><X size={18} /></button>
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.9rem" }}>
 
-                {/* ── Category pills ── */}
+                {/* ── Issue Type pills ── */}
                 <div style={{ gridColumn: "span 2" }}>
-                  <label style={labelStyle}>Category <span style={{ color: "#dc2626" }}>*</span></label>
-                  <div className="dr-cat-pills">
-                    {CATEGORIES.map(cat => {
-                      const active = form.category === cat;
+                  <label style={labelStyle}>Issue Type <span style={{ color: "#dc2626" }}>*</span></label>
+                  <div className="ticket-issue-pills">
+                    {ISSUE_TYPES.map(type => {
+                      const active = form.issue_type === type;
                       const activeClass =
-                        cat === "Hardware"           ? "active-hw"  :
-                        cat === "Software"           ? "active-sw"  :
-                        cat === "Network / Internet" ? "active-net" :
-                        cat === "Peripheral"         ? "active-per" : "active-oth";
+                        type === "Hardware"           ? "active-hw"  :
+                        type === "Software"           ? "active-sw"  :
+                        type === "Network / Internet" ? "active-net" :
+                        type === "Peripheral"         ? "active-per" : "active-oth";
                       return (
                         <button
-                          key={cat}
+                          key={type}
                           type="button"
-                          className={`dr-cat-pill${active ? ` ${activeClass}` : ""}`}
-                          onClick={() => handleCategoryChange(cat)}
+                          className={`ticket-issue-pill${active ? ` ${activeClass}` : ""}`}
+                          onClick={() => handleIssueTypeChange(type)}
                         >
-                          {CATEGORY_CONFIG[cat].icon}
-                          {cat}
+                          {ISSUE_TYPE_CONFIG[type].icon}
+                          {type}
                         </button>
                       );
                     })}
@@ -590,7 +625,7 @@ const FileReports: React.FC = () => {
 
                 {/* Title */}
                 <div style={{ gridColumn: "span 2" }}>
-                  <label style={labelStyle}>Title <span style={{ color: "#dc2626" }}>*</span></label>
+                  <label style={labelStyle}>Issue Title <span style={{ color: "#dc2626" }}>*</span></label>
                   <input value={form.title}
                     onChange={e => { setForm(f => ({ ...f, title: e.target.value })); setFormError(""); }}
                     placeholder="Brief description of the issue"
@@ -600,76 +635,57 @@ const FileReports: React.FC = () => {
                   <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2, textAlign: "right" }}>{form.title.length}/150</div>
                 </div>
 
-                {/* Equipment Name */}
+                {/* Employee Name */}
                 <div style={{ gridColumn: "span 2" }}>
-                  <label style={labelStyle}>Equipment Name <span style={{ color: "#dc2626" }}>*</span></label>
-                  <input value={form.equipment_name}
-                    onChange={e => { setForm(f => ({ ...f, equipment_name: e.target.value })); setFormError(""); }}
-                    placeholder="e.g. Epson Printer L3110"
-                    maxLength={100}
-                    style={{ ...inputStyle, borderColor: formError && !form.equipment_name.trim() ? "#fca5a5" : "#e2e8f0" }}
-                  />
-                </div>
-
-                {/* Reporter Name */}
-                <div>
-                  <label style={labelStyle}>Reporter Name <span style={{ color: "#dc2626" }}>*</span></label>
-                  <input value={form.reported_by_name}
-                    onChange={e => { setForm(f => ({ ...f, reported_by_name: e.target.value })); setFormError(""); }}
+                  <label style={labelStyle}>Employee Name <span style={{ color: "#dc2626" }}>*</span></label>
+                  <input value={form.employee_name}
+                    onChange={e => { setForm(f => ({ ...f, employee_name: e.target.value })); setFormError(""); }}
                     placeholder="e.g. Juan Dela Cruz"
-                    style={{ ...inputStyle, borderColor: formError && !form.reported_by_name.trim() ? "#fca5a5" : "#e2e8f0" }}
+                    maxLength={100}
+                    style={{ ...inputStyle, borderColor: formError && !form.employee_name.trim() ? "#fca5a5" : "#e2e8f0" }}
                   />
                 </div>
 
-                {/* Reporter Department */}
+                {/* Department */}
                 <div>
-                  <label style={labelStyle}>Reporter Department <span style={{ color: "#dc2626" }}>*</span></label>
-                  <select value={form.reported_by_department}
-                    onChange={e => { setForm(f => ({ ...f, reported_by_department: e.target.value })); setFormError(""); }}
-                    style={{ ...selectStyle, borderColor: formError && !form.reported_by_department ? "#fca5a5" : "#e2e8f0" }}>
+                  <label style={labelStyle}>Department <span style={{ color: "#dc2626" }}>*</span></label>
+                  <select value={form.department_id}
+                    onChange={e => { setForm(f => ({ ...f, department_id: e.target.value })); setFormError(""); }}
+                    style={{ ...selectStyle, borderColor: formError && !form.department_id ? "#fca5a5" : "#e2e8f0" }}>
                     <option value="">— Select department —</option>
                     {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                   </select>
                 </div>
 
-                {/* Report Type */}
+                {/* Date Submitted */}
                 <div>
-                  <label style={labelStyle}>Report Type <span style={{ color: "#dc2626" }}>*</span></label>
-                  <select value={form.report_type}
-                    onChange={e => {
-                      const t = e.target.value as ReportType;
-                      setForm(f => ({ ...f, report_type: t, resolved_at: t === "Incoming" ? "" : f.resolved_at }));
-                      setFormError("");
-                    }}
-                    style={selectStyle}>
-                    {REPORT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                  <div style={{ fontSize: 11, color: "#64748b", marginTop: 4, fontStyle: "italic" }}>
-                    {form.report_type === "Incoming" ? "Unit coming in for repair" : "Unit resolved and going out"}
-                  </div>
-                </div>
-
-                {/* Reported Date */}
-                <div>
-                  <label style={labelStyle}>Reported Date <span style={{ color: "#dc2626" }}>*</span></label>
-                  <input type="date" value={form.reported_date}
+                  <label style={labelStyle}>Date Submitted <span style={{ color: "#dc2626" }}>*</span></label>
+                  <input type="date" value={form.date_submitted}
                     max={new Date().toISOString().slice(0, 10)}
-                    onChange={e => { setForm(f => ({ ...f, reported_date: e.target.value })); setFormError(""); }}
-                    style={{ ...inputStyle, borderColor: formError && !form.reported_date ? "#fca5a5" : "#e2e8f0" }}
+                    onChange={e => { setForm(f => ({ ...f, date_submitted: e.target.value })); setFormError(""); }}
+                    style={{ ...inputStyle, borderColor: formError && !form.date_submitted ? "#fca5a5" : "#e2e8f0" }}
                   />
                 </div>
 
-                {/* Resolved date - only for Outgoing */}
-                {form.report_type === "Outgoing" && (
-                  <div style={{ gridColumn: "span 2" }}>
-                    <label style={labelStyle}>Resolved Date <span style={{ color: "#dc2626" }}>*</span></label>
-                    <input type="date" value={form.resolved_at}
-                      max={new Date().toISOString().slice(0, 10)}
-                      onChange={e => { setForm(f => ({ ...f, resolved_at: e.target.value })); setFormError(""); }}
-                      style={{ ...inputStyle, borderColor: formError && !form.resolved_at ? "#fca5a5" : "#e2e8f0" }}
-                    />
-                  </div>
-                )}
+                {/* Priority */}
+                <div>
+                  <label style={labelStyle}>Priority <span style={{ color: "#dc2626" }}>*</span></label>
+                  <select value={form.priority}
+                    onChange={e => { setForm(f => ({ ...f, priority: e.target.value as Priority })); setFormError(""); }}
+                    style={selectStyle}>
+                    {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+
+                {/* Status */}
+                <div>
+                  <label style={labelStyle}>Status <span style={{ color: "#dc2626" }}>*</span></label>
+                  <select value={form.status}
+                    onChange={e => { setForm(f => ({ ...f, status: e.target.value as Status })); setFormError(""); }}
+                    style={selectStyle}>
+                    {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
 
                 {/* Description */}
                 <div style={{ gridColumn: "span 2" }}>
@@ -678,7 +694,7 @@ const FileReports: React.FC = () => {
                   </label>
                   <textarea value={form.description}
                     onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                    placeholder="Describe the issue or resolution details..."
+                    placeholder="Provide detailed information about the issue..."
                     rows={4} maxLength={2000}
                     style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }}
                   />
@@ -697,7 +713,7 @@ const FileReports: React.FC = () => {
                   Cancel
                 </button>
                 <button onClick={handleSubmit} disabled={submitting} style={{ padding: "0.5rem 1.2rem", borderRadius: 8, border: "none", background: BRAND, color: "#fff", fontSize: 13, fontWeight: 600, cursor: submitting ? "not-allowed" : "pointer", fontFamily: "'Poppins', sans-serif", opacity: submitting ? 0.7 : 1 }}>
-                  {submitting ? "Saving…" : modalMode === "add" ? "File Report" : "Save Changes"}
+                  {submitting ? "Saving…" : modalMode === "add" ? "Submit Ticket" : "Save Changes"}
                 </button>
               </div>
             </div>
@@ -706,14 +722,15 @@ const FileReports: React.FC = () => {
 
         {/* ══ View Modal ══ */}
         {modalMode === "view" && selected && (
-          <div className="modal-overlay-dr" style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}>
-            <div className="modal-box-dr" style={{ background: "#fff", borderRadius: 18, padding: "1.6rem", width: "100%", maxWidth: 540, maxHeight: "calc(100vh - 32px)", overflowY: "auto", boxShadow: "0 24px 60px rgba(15,23,42,0.2)" }}>
+          <div className="modal-overlay-ticket" style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}>
+            <div className="modal-box-ticket" style={{ background: "#fff", borderRadius: 18, padding: "1.6rem", width: "100%", maxWidth: 540, maxHeight: "calc(100vh - 32px)", overflowY: "auto", boxShadow: "0 24px 60px rgba(15,23,42,0.2)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.2rem" }}>
                 <div>
                   <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, marginBottom: 8 }}>{selected.title}</h2>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <CategoryBadge category={selected.category} />
-                    <ReportTypeBadge type={selected.report_type} />
+                    <IssueTypeBadge type={selected.issue_type} />
+                    <PriorityBadge priority={selected.priority} />
+                    <StatusBadge status={selected.status} />
                   </div>
                 </div>
                 <button onClick={closeModal} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", flexShrink: 0 }}><X size={18} /></button>
@@ -721,15 +738,14 @@ const FileReports: React.FC = () => {
 
               <div style={{ display: "flex", flexDirection: "column" }}>
                 {[
-                  { label: "Equipment",   value: selected.equipment_name },
-                  { label: "Reporter",    value: selected.reported_by_name },
-                  { label: "Department",  value: getDepartmentName(selected.reported_by_department) },
-                  { label: "Report Type", value: selected.report_type },
-                  { label: "Reported",    value: new Date(selected.reported_date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) },
-                  { label: "Resolved",    value: selected.resolved_at ? new Date(selected.resolved_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "—" },
+                  { label: "Employee", value: selected.employee_name, icon: <User size={12} /> },
+                  { label: "Department", value: getDepartmentName(selected.department_id), icon: <Building2 size={12} /> },
+                  { label: "Submitted", value: new Date(selected.date_submitted).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }), icon: <Clock size={12} /> },
                 ].map(row => (
-                  <div key={row.label} className="dr-detail-row">
-                    <span className="dr-detail-label">{row.label}</span>
+                  <div key={row.label} className="ticket-detail-row">
+                    <span className="ticket-detail-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      {row.icon} {row.label}
+                    </span>
                     <span style={{ color: "#0f172a" }}>{row.value}</span>
                   </div>
                 ))}
@@ -760,12 +776,12 @@ const FileReports: React.FC = () => {
 
         {/* ══ Delete Confirm Modal ══ */}
         {deleteTarget && (
-          <div className="modal-overlay-dr" style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-            <div className="modal-box-dr" style={{ background: "#fff", borderRadius: 18, padding: "1.6rem", width: "100%", maxWidth: 380, boxShadow: "0 24px 60px rgba(15,23,42,0.2)", textAlign: "center" }}>
+          <div className="modal-overlay-ticket" style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+            <div className="modal-box-ticket" style={{ background: "#fff", borderRadius: 18, padding: "1.6rem", width: "100%", maxWidth: 380, boxShadow: "0 24px 60px rgba(15,23,42,0.2)", textAlign: "center" }}>
               <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#fee2e2", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1rem" }}>
                 <AlertTriangle size={22} color="#dc2626" />
               </div>
-              <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>Delete Report?</h2>
+              <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>Delete Ticket?</h2>
               <p style={{ fontSize: 13, color: "#475569", marginBottom: "1.4rem" }}>
                 Permanently delete <strong>"{deleteTarget.title}"</strong>? This cannot be undone.
               </p>
@@ -787,4 +803,4 @@ const FileReports: React.FC = () => {
   );
 };
 
-export default FileReports;
+export default SubmitTicket;

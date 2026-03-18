@@ -531,7 +531,7 @@ const Departments: React.FC = () => {
                 {eqLoading ? (
                   <p style={{ textAlign: "center", color: "#94a3b8", padding: "2rem", fontSize: 14 }}>Loading assigned equipment…</p>
                 ) : equipment.length === 0 ? (
-                  <p style={{ textAlign: "center", color: "#94a3b8", padding: "2rem" }}>No equipment assigned to this department.</p>
+                  <p style={{ textAlign: "center", color: "#94a3b8", padding: "2rem", fontSize: 14 }}>No equipment assigned to this department.</p>
                 ) : (
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead>

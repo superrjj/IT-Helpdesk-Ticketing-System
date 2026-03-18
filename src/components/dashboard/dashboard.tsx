@@ -5,7 +5,7 @@ import Sidebar from "./sidebar";
 import Header from "./header";
 import Equipment from "../equipment/equipment";
 import Departments from "../department/department";
-import FileReports from "../file-reports/file-reports";
+import FileReports from "../submit-ticket/submitTicket";
 import Repairs from "../repairs/repairs";
 import UserAccounts from "../accounts/user-accounts";
 
