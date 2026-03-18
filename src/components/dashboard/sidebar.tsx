@@ -1,8 +1,8 @@
 import React from "react";
 import {
   LayoutDashboard, Monitor, Building2,
-  Wrench, ClipboardList, BarChart2, User,
-  TicketIcon,
+  Wrench, ClipboardList, BarChart2, User, CircleArrowDown,
+  TicketIcon, CircleArrowUp,
 } from "lucide-react";
 
 const baseBlue = "#0a4c86";
@@ -12,11 +12,14 @@ const menuItems = [
   { label: "Dashboard",         icon: LayoutDashboard },
   { label: "Submit Ticket", icon: TicketIcon },
   { label: "Repairs",           icon: Wrench },
-  { label: "Equipment",         icon: Monitor },
+  { label: "Incoming Units",         icon: CircleArrowUp },
+  { label: "Outgoing Units",         icon: CircleArrowDown },
   { label: "Departments",       icon: Building2 },
+  { label: "Equipment",         icon: Monitor },
   { label: "Repair History",    icon: ClipboardList },
-  { label: "Reports",           icon: BarChart2 },
+  { label: "Reports & Analytics",           icon: BarChart2 },
   { label: "User Accounts",          icon: User },
+
 ];
 
 type SidebarProps = {

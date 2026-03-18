@@ -270,11 +270,13 @@ const Dashboard: React.FC = () => {
       case 0: return <DashboardHome />;
       case 1: return <FileReports />;
       case 2: return <Repairs />;
-      case 3: return <Equipment />;
-      case 4: return <Departments />;
-      case 5: return <ComingSoon label="Repair History" />;
-      case 6: return <ComingSoon label="Reports" />;
-      case 7: return <UserAccounts />;
+      case 3: return <ComingSoon label="Incoming Units" />;
+      case 4: return <ComingSoon label="Outgoing Units"/>;
+      case 5: return <Departments />;
+      case 6: return <Equipment/>;
+      case 7: return <ComingSoon label="Repair History" />;
+      case 8: return <ComingSoon label="Reports & Analytics" />;
+      case 9: return <UserAccounts />;
       default: return <ComingSoon label="Page" />;
     }
   };

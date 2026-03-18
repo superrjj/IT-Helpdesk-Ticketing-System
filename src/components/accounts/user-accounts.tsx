@@ -12,7 +12,7 @@ const labelStyle: React.CSSProperties = {
     fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 4, display: "block",
   };
 
-type Role = "Admin" | "Staff";
+type Role = "Admin" | "IT Staff";
 type ModalMode = "add" | "edit" | null;
 
 type UserAccount = {
@@ -86,7 +86,7 @@ export default function UserAccounts() {
     username: "",
     full_name: "",
     email: "",
-    role: "Staff" as Role,
+    role: "IT Staff" as Role,
     is_active: true,
     password: "",
     confirmPassword: "",
@@ -166,7 +166,7 @@ export default function UserAccounts() {
       username: "",
       full_name: "",
       email: "",
-      role: "Staff",
+      role: "IT Staff",
       is_active: true,
       password: "",
       confirmPassword: "",
@@ -306,7 +306,7 @@ export default function UserAccounts() {
       username: r.username.trim(),
       full_name: r.full_name.trim(),
       email: r.email.trim(),
-      role: "Staff",
+      role: "IT Staff",
       is_active: true,
       password_hash: r.password_hash,
     });
@@ -421,7 +421,7 @@ export default function UserAccounts() {
           display: "inline-flex", gap: 8, alignItems: "center",
           border: "none", background: BRAND, color: "#fff",
           padding: "0.55rem 0.9rem", borderRadius: 10, cursor: "pointer", fontWeight: 700,
-        }}><Plus size={16} /> Add User</button>
+        }}><Plus size={16} /> Add Account</button>
       </div>
 
       <div style={{
@@ -560,8 +560,8 @@ export default function UserAccounts() {
               <div>
                 <label style={labelStyle}>Role <span style={{ color: "#dc2626" }}>*</span></label>
                 <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value as Role }))} style={{ width: "100%", padding: "0.55rem 0.7rem", borderRadius: 10, border: "1px solid #e2e8f0", background: "#f8fafc" }}>
-                  <option value="Staff">Staff</option>
-                  <option value="Admin">Admin</option>
+                  <option value="IT Staff">IT Staff</option>
+                  <option value="Admin">Administrator</option>
                 </select>
               </div>
               <div className="ua-span2">
