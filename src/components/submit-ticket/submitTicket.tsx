@@ -497,10 +497,10 @@ const SubmitTicket: React.FC = () => {
               <thead>
                 <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
                   {([
-                    { label: "Issue",       field: "title"          as SortField },
+                    { label: "Problem",       field: "title"          as SortField },
                     { label: "Issue Type",  field: "issue_type"     as SortField },
                     { label: "Employee",    field: null },
-                    { label: "Department",  field: null },
+                    { label: "Office",  field: null },
                     { label: "Priority",    field: "priority"       as SortField },
                     { label: "Status",      field: "status"         as SortField },
                     { label: "Submitted",   field: "date_submitted" as SortField },

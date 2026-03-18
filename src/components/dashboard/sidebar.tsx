@@ -1,26 +1,65 @@
 import React from "react";
 import {
-  LayoutDashboard, Monitor, Building2,
-  Wrench, ClipboardList, BarChart2, User, CircleArrowDown,
-  TicketIcon, CircleArrowUp,
+  Home,
+  Building2,
+  Wrench,
+  ClipboardList,
+  BarChart2,
+  User,
+  CircleArrowDown,
+  CircleArrowUp,
+  TicketIcon,
 } from "lucide-react";
 
 const baseBlue = "#0a4c86";
 const hoverBlue = "#0d5fa3";
 
-const menuItems = [
-  { label: "Dashboard",         icon: LayoutDashboard },
-  { label: "Submit Ticket", icon: TicketIcon },
-  { label: "Repairs",           icon: Wrench },
-  { label: "Incoming Units",         icon: CircleArrowUp },
-  { label: "Outgoing Units",         icon: CircleArrowDown },
-  { label: "Departments",       icon: Building2 },
-  { label: "Equipment",         icon: Monitor },
-  { label: "Repair History",    icon: ClipboardList },
-  { label: "Reports & Analytics",           icon: BarChart2 },
-  { label: "User Accounts",          icon: User },
+type MenuItem = {
+  label: string;
+  icon: React.ElementType;
+};
 
+type MenuSection = {
+  heading?: string;
+  items: MenuItem[];
+};
+
+const menuSections: MenuSection[] = [
+  {
+    items: [
+      { label: "Home", icon: Home },
+    ],
+  },
+  {
+    heading: "Tickets & Repairs",
+    items: [
+      { label: "Submit Ticket", icon: TicketIcon },
+      { label: "Repairs", icon: Wrench },
+      { label: "Repair History", icon: ClipboardList },
+    ],
+  },
+  {
+    heading: "Units",
+    items: [
+      { label: "Incoming Units", icon: CircleArrowDown },
+      { label: "Outgoing Units", icon:CircleArrowUp },
+    ],
+  },
+  {
+    heading: "Management",
+    items: [
+      { label: "Departments", icon: Building2 },
+      { label: "User Accounts", icon: User },
+    ],
+  },
+  {
+    heading: "Reports",
+    items: [
+      { label: "Reports & Analytics", icon: BarChart2 },
+    ],
+  },
 ];
+
 
 type SidebarProps = {
   activeIndex: number;
@@ -28,6 +67,8 @@ type SidebarProps = {
 };
 
 const Sidebar: React.FC<SidebarProps> = ({ activeIndex, onNavigate }) => {
+  let globalIndex = -1;
+
   return (
     <>
       <style>{`
@@ -50,12 +91,13 @@ const Sidebar: React.FC<SidebarProps> = ({ activeIndex, onNavigate }) => {
           padding: "1.4rem 1.4rem 1.6rem",
           display: "flex",
           flexDirection: "column",
-          gap: "1.5rem",
+          gap: "1.2rem",
           borderRight: "1px solid #e2e8f0",
           fontFamily: "'Poppins', sans-serif",
           flexShrink: 0,
         }}
       >
+        {/* Logo */}
         <div>
           <img
             src="/masaya-sa-tarlac-city.png"
@@ -64,36 +106,71 @@ const Sidebar: React.FC<SidebarProps> = ({ activeIndex, onNavigate }) => {
           />
         </div>
 
-        <nav style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
-          {menuItems.map(({ label, icon: Icon }, index) => {
-            const active = index === activeIndex;
-            return (
-              <button
-                key={label}
-                className="sidebar-btn"
-                data-active={String(active)}
-                onClick={() => onNavigate(index)}
-                style={{
-                  textAlign: "left",
-                  padding: "0.55rem 0.7rem",
-                  borderRadius: 14,
-                  border: "none",
-                  background: active ? baseBlue : "transparent",
-                  color: active ? "#ffffff" : "#475569",
-                  fontWeight: active ? 600 : 500,
-                  cursor: "pointer",
-                  fontFamily: "'Poppins', sans-serif",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.6rem",
-                  width: "100%",
-                }}
-              >
-                <Icon size={16} strokeWidth={2} />
-                {label}
-              </button>
-            );
-          })}
+        {/* Sectioned Nav */}
+        <nav style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}>
+          {menuSections.map((section, sIdx) => (
+            <div key={sIdx} style={{ marginBottom: section.heading ? 6 : 0 }}>
+              {/* Section Heading */}
+              {section.heading && (
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 600,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: "#94a3b8",
+                    padding: "0.5rem 0.7rem 0.3rem",
+                  }}
+                >
+                  {section.heading}
+                </div>
+              )}
+
+              {/* Items */}
+              {section.items.map(({ label, icon: Icon }) => {
+                globalIndex++;
+                const idx = globalIndex;
+                const active = idx === activeIndex;
+                return (
+                  <button
+                    key={label}
+                    className="sidebar-btn"
+                    data-active={String(active)}
+                    onClick={() => onNavigate(idx)}
+                    style={{
+                      textAlign: "left",
+                      padding: "0.55rem 0.7rem",
+                      borderRadius: 14,
+                      border: "none",
+                      background: active ? baseBlue : "transparent",
+                      color: active ? "#ffffff" : "#475569",
+                      fontWeight: active ? 600 : 500,
+                      cursor: "pointer",
+                      fontFamily: "'Poppins', sans-serif",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.6rem",
+                      width: "100%",
+                    }}
+                  >
+                    <Icon size={16} strokeWidth={2} />
+                    {label}
+                  </button>
+                );
+              })}
+
+              {/* Divider between sections (not after last) */}
+              {sIdx < menuSections.length - 1 && (
+                <div
+                  style={{
+                    height: 1,
+                    background: "#e2e8f0",
+                    margin: "0.5rem 0.4rem",
+                  }}
+                />
+              )}
+            </div>
+          ))}
         </nav>
       </aside>
     </>

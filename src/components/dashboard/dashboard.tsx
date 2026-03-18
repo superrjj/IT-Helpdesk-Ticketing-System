@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { createClient } from "@supabase/supabase-js";
 import Sidebar from "./sidebar";
 import Header from "./header";
-import Equipment from "../equipment/equipment";
 import Departments from "../department/department";
 import FileReports from "../submit-ticket/submitTicket";
 import Repairs from "../repairs/repairs";
@@ -270,13 +269,12 @@ const Dashboard: React.FC = () => {
       case 0: return <DashboardHome />;
       case 1: return <FileReports />;
       case 2: return <Repairs />;
-      case 3: return <ComingSoon label="Incoming Units" />;
-      case 4: return <ComingSoon label="Outgoing Units"/>;
-      case 5: return <Departments />;
-      case 6: return <Equipment/>;
-      case 7: return <ComingSoon label="Repair History" />;
+      case 3: return <ComingSoon label="Repair History" />;
+      case 4: return <ComingSoon label="Incoming Units"/>;
+      case 5: return <ComingSoon label="Outgoing Units"/>;
+      case 6: return <Departments />;
+      case 7: return <UserAccounts />;
       case 8: return <ComingSoon label="Reports & Analytics" />;
-      case 9: return <UserAccounts />;
       default: return <ComingSoon label="Page" />;
     }
   };
