@@ -2,7 +2,6 @@ import React from "react";
 import {
   Home,
   Building2,
-  Wrench,
   ClipboardList,
   BarChart2,
   User,
@@ -34,7 +33,6 @@ const menuSections: MenuSection[] = [
     heading: "Tickets & Repairs",
     items: [
       { label: "Submit Ticket", icon: TicketIcon },
-      { label: "Repairs", icon: Wrench },
       { label: "Repair History", icon: ClipboardList },
     ],
   },
@@ -42,7 +40,7 @@ const menuSections: MenuSection[] = [
     heading: "Units",
     items: [
       { label: "Incoming Units", icon: CircleArrowDown },
-      { label: "Outgoing Units", icon:CircleArrowUp },
+      { label: "Outgoing Units", icon: CircleArrowUp },
     ],
   },
   {
@@ -60,14 +58,16 @@ const menuSections: MenuSection[] = [
   },
 ];
 
+const adminOnly = ["User Accounts", "Reports & Analytics"];
 
 type SidebarProps = {
-  activeIndex: number;
-  onNavigate: (index: number) => void;
+  activeLabel: string;
+  onNavigate: (label: string) => void;
+  userRole: string;
 };
 
-const Sidebar: React.FC<SidebarProps> = ({ activeIndex, onNavigate }) => {
-  let globalIndex = -1;
+const Sidebar: React.FC<SidebarProps> = ({ activeLabel, onNavigate, userRole }) => {
+  const isAdmin = userRole === "Administrator";
 
   return (
     <>
@@ -108,69 +108,77 @@ const Sidebar: React.FC<SidebarProps> = ({ activeIndex, onNavigate }) => {
 
         {/* Sectioned Nav */}
         <nav style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}>
-          {menuSections.map((section, sIdx) => (
-            <div key={sIdx} style={{ marginBottom: section.heading ? 6 : 0 }}>
-              {/* Section Heading */}
-              {section.heading && (
-                <div
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 600,
-                    letterSpacing: "0.08em",
-                    textTransform: "uppercase",
-                    color: "#94a3b8",
-                    padding: "0.5rem 0.7rem 0.3rem",
-                  }}
-                >
-                  {section.heading}
-                </div>
-              )}
+          {menuSections.map((section, sIdx) => {
+            // Pre-filter: only keep items the current role can see
+            const visibleItems = section.items.filter(({ label }) =>
+              !adminOnly.includes(label) || isAdmin
+            );
 
-              {/* Items */}
-              {section.items.map(({ label, icon: Icon }) => {
-                globalIndex++;
-                const idx = globalIndex;
-                const active = idx === activeIndex;
-                return (
-                  <button
-                    key={label}
-                    className="sidebar-btn"
-                    data-active={String(active)}
-                    onClick={() => onNavigate(idx)}
+            // Skip entire section (heading + divider) if nothing to show
+            if (visibleItems.length === 0) return null;
+
+            return (
+              <div key={sIdx} style={{ marginBottom: section.heading ? 6 : 0 }}>
+                {/* Section Heading */}
+                {section.heading && (
+                  <div
                     style={{
-                      textAlign: "left",
-                      padding: "0.55rem 0.7rem",
-                      borderRadius: 14,
-                      border: "none",
-                      background: active ? baseBlue : "transparent",
-                      color: active ? "#ffffff" : "#475569",
-                      fontWeight: active ? 600 : 500,
-                      cursor: "pointer",
-                      fontFamily: "'Poppins', sans-serif",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.6rem",
-                      width: "100%",
+                      fontSize: 10,
+                      fontWeight: 600,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      color: "#94a3b8",
+                      padding: "0.5rem 0.7rem 0.3rem",
                     }}
                   >
-                    <Icon size={16} strokeWidth={2} />
-                    {label}
-                  </button>
-                );
-              })}
+                    {section.heading}
+                  </div>
+                )}
 
-              {/* Divider between sections (not after last) */}
-              {sIdx < menuSections.length - 1 && (
-                <div
-                  style={{
-                    height: 1,
-                    background: "#e2e8f0",
-                    margin: "0.5rem 0.4rem",
-                  }}
-                />
-              )}
-            </div>
-          ))}
+                {/* Visible Items */}
+                {visibleItems.map(({ label, icon: Icon }) => {
+                  const active = label === activeLabel;
+                  return (
+                    <button
+                      key={label}
+                      className="sidebar-btn"
+                      data-active={String(active)}
+                      onClick={() => onNavigate(label)}
+                      style={{
+                        textAlign: "left",
+                        padding: "0.55rem 0.7rem",
+                        borderRadius: 14,
+                        border: "none",
+                        background: active ? baseBlue : "transparent",
+                        color: active ? "#ffffff" : "#475569",
+                        fontWeight: active ? 600 : 500,
+                        cursor: "pointer",
+                        fontFamily: "'Poppins', sans-serif",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.6rem",
+                        width: "100%",
+                      }}
+                    >
+                      <Icon size={16} strokeWidth={2} />
+                      {label}
+                    </button>
+                  );
+                })}
+
+                {/* Divider between sections (not after last) */}
+                {sIdx < menuSections.length - 1 && (
+                  <div
+                    style={{
+                      height: 1,
+                      background: "#e2e8f0",
+                      margin: "0.5rem 0.4rem",
+                    }}
+                  />
+                )}
+              </div>
+            );
+          })}
         </nav>
       </aside>
     </>

@@ -7,7 +7,6 @@ const brandBlue = "#0a4c86";
 const headerStyles = `
   @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
 
-  /* ── Logout confirm overlay ── */
   .hdr-overlay {
     position: fixed;
     inset: 0;
@@ -112,7 +111,6 @@ const headerStyles = `
   .hdr-btn-confirm:hover  { filter: brightness(1.06); transform: translateY(-1px); }
   .hdr-btn-confirm:active { transform: translateY(0); filter: brightness(1); }
 
-  /* ── Logging-out loading overlay ── */
   .hdr-loading-overlay {
     position: fixed;
     inset: 0;
@@ -156,9 +154,10 @@ const headerStyles = `
 
 type HeaderProps = {
   currentUserName: string;
+  userRole: string;
 };
 
-const Header: React.FC<HeaderProps> = ({ currentUserName }) => {
+const Header: React.FC<HeaderProps> = ({ currentUserName, userRole }) => {
   const navigate = useNavigate();
   const [now, setNow]               = useState(new Date());
   const [showConfirm, setShowConfirm] = useState(false);
@@ -197,6 +196,7 @@ const Header: React.FC<HeaderProps> = ({ currentUserName }) => {
       localStorage.removeItem("session_user_id");
       localStorage.removeItem("session_user_full_name");
       localStorage.removeItem("session_user_role");
+      localStorage.removeItem("session_expires_at");
       navigate("/", { replace: true });
     }, 3000);
   };
@@ -221,16 +221,10 @@ const Header: React.FC<HeaderProps> = ({ currentUserName }) => {
               Any unsaved changes will be lost.
             </p>
             <div className="hdr-dialog-actions">
-              <button
-                className="hdr-btn-cancel"
-                onClick={() => setShowConfirm(false)}
-              >
+              <button className="hdr-btn-cancel" onClick={() => setShowConfirm(false)}>
                 Stay
               </button>
-              <button
-                className="hdr-btn-confirm"
-                onClick={confirmLogout}
-              >
+              <button className="hdr-btn-confirm" onClick={confirmLogout}>
                 <LogOut size={13} strokeWidth={2.2} />
                 Sign out
               </button>
@@ -285,9 +279,22 @@ const Header: React.FC<HeaderProps> = ({ currentUserName }) => {
             {initials}
           </div>
 
-          <span style={{ fontSize: 15, fontWeight: 600, color: "#0f172a" }}>
-            {currentUserName}
-          </span>
+          {/* Name + role — centered, role same blue, uppercase */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+            <span style={{ fontSize: 15, fontWeight: 600, color: "#0f172a", lineHeight: 1.2 }}>
+              {currentUserName}
+            </span>
+            <span style={{
+              fontSize: 12,
+              fontWeight: 800,
+              color: brandBlue,
+              lineHeight: 1.2,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+            }}>
+              {userRole}
+            </span>
+          </div>
 
           <button
             onClick={() => setShowConfirm(true)}

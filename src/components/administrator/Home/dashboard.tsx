@@ -5,7 +5,7 @@ import Sidebar from "../Dashboard/sidebar";
 import Header from "../Dashboard/header";
 import Departments from "../Management/department";
 import FileReports from "../Ticket & Repairs/submitTicket";
-import Repairs from "../repairs/repairs";
+import ReportAnalytics from "../Reports/report-analytics";
 import UserAccounts from "../Management/user-accounts";
 
 // ── Supabase client ────────────────────────────────────────────────────────────
@@ -86,7 +86,6 @@ const DashboardHome: React.FC = () => {
     const fetchDashboardData = async () => {
       setLoading(true);
 
-      // Fetch all equipment with their status and department
       const { data: equipment } = await supabase
         .from("equipment")
         .select("status, department_id");
@@ -97,14 +96,12 @@ const DashboardHome: React.FC = () => {
         setRepairCount(equipment.filter(e => e.status === "Under Repair").length);
         setActiveCount(equipment.filter(e => e.status === "Active").length);
 
-        // Fetch all departments
         const { data: departments } = await supabase
           .from("departments")
           .select("id, name")
           .order("name", { ascending: true });
 
         if (departments) {
-          // Calculate stats for each department
           const stats: DepartmentStats[] = departments.map(dept => {
             const deptEquipment = equipment.filter(e => e.department_id === dept.id);
             return {
@@ -113,13 +110,12 @@ const DashboardHome: React.FC = () => {
               defective: deptEquipment.filter(e => e.status === "Defective").length,
               repair: deptEquipment.filter(e => e.status === "Under Repair").length,
             };
-          }).filter(s => s.total > 0); // Only show departments with equipment
+          }).filter(s => s.total > 0);
 
           setDeptStats(stats);
         }
       }
 
-      // Fetch recent repair activities
       const { data: repairs } = await supabase
         .from("repairs")
         .select(`
@@ -141,15 +137,14 @@ const DashboardHome: React.FC = () => {
         const activities: RepairActivity[] = repairs.map((r: any) => {
           const equipmentName = r.equipment?.name || "Unknown Equipment";
           const deptName = r.equipment?.departments?.name || "Unknown Department";
-          
           return {
             equipment: `${equipmentName} – ${deptName}`,
             detail: r.issue_description || "No description provided",
-            status: r.status === "completed" ? "Fixed" : 
+            status: r.status === "completed" ? "Fixed" :
                    r.status === "in_progress" ? "Under Repair" : "Pending",
-            date: new Date(r.created_at).toLocaleDateString("en-US", { 
-              month: "short", 
-              day: "numeric" 
+            date: new Date(r.created_at).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
             }),
           };
         });
@@ -164,10 +159,10 @@ const DashboardHome: React.FC = () => {
 
   if (loading) {
     return (
-      <div style={{ 
-        display: "flex", 
-        alignItems: "center", 
-        justifyContent: "center", 
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
         minHeight: "60vh",
         color: "#94a3b8",
         fontSize: 14,
@@ -254,46 +249,57 @@ const DashboardHome: React.FC = () => {
   );
 };
 
+// ── Dashboard shell ───────────────────────────────────────────────────────────
 const Dashboard: React.FC = () => {
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [activeLabel, setActiveLabel] = useState("Home");
   const navigate = useNavigate();
   const currentUserName = localStorage.getItem("session_user_full_name") || "User";
+  const userRole        = localStorage.getItem("session_user_role") || "";
+  const isAdmin         = userRole === "Administrator";
 
   useEffect(() => {
     const token = localStorage.getItem("session_token");
     if (!token) navigate("/");
   }, [navigate]);
 
-  const renderPage = () => {
-    switch (activeIndex) {
-      case 0: return <DashboardHome />;
-      case 1: return <FileReports />;
-      case 2: return <Repairs />;
-      case 3: return <ComingSoon label="Repair History" />;
-      case 4: return <ComingSoon label="Incoming Units"/>;
-      case 5: return <ComingSoon label="Outgoing Units"/>;
-      case 6: return <Departments />;
-      case 7: return <UserAccounts />;
-      case 8: return <ComingSoon label="Reports & Analytics" />;
-      default: return <ComingSoon label="Page" />;
-    }
+  // ── Page map: label → component ──────────────────────────────────────────
+  const PAGE_MAP: Record<string, React.ReactNode> = {
+    "Home":                 <DashboardHome />,
+    "Submit Ticket":        <FileReports />,
+    "Repair History":       <ComingSoon label="Repair History" />,
+    "Incoming Units":       <ComingSoon label="Incoming Units" />,
+    "Outgoing Units":       <ComingSoon label="Outgoing Units" />,
+    "Departments":          <Departments />,
+    "User Accounts":        isAdmin ? <UserAccounts /> : <DashboardHome />,
+    "Reports & Analytics":  isAdmin ? <ReportAnalytics /> : <DashboardHome />,
   };
 
   return (
     <>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');`}</style>
       <div style={{
-        minHeight: "100vh", display: "flex", background: "#f4f5fb",
-        fontFamily: "'Poppins', sans-serif", color: "#0f172a",
+        minHeight: "100vh",
+        display: "flex",
+        background: "#f4f5fb",
+        fontFamily: "'Poppins', sans-serif",
+        color: "#0f172a",
       }}>
-        <Sidebar activeIndex={activeIndex} onNavigate={setActiveIndex} />
+        <Sidebar
+          activeLabel={activeLabel}
+          onNavigate={setActiveLabel}
+          userRole={userRole}
+        />
 
         <div style={{
-          flex: 1, padding: "1.4rem 1.8rem 1.8rem",
-          display: "flex", flexDirection: "column", gap: "1.2rem",
+          flex: 1,
+          padding: "1.4rem 1.8rem 1.8rem",
+          display: "flex",
+          flexDirection: "column",
+          gap: "1.2rem",
         }}>
-          <Header currentUserName={currentUserName} />
-          {renderPage()}
+          {/* Pass both name and role to Header */}
+          <Header currentUserName={currentUserName} userRole={userRole} />
+          {PAGE_MAP[activeLabel] ?? <DashboardHome />}
         </div>
       </div>
     </>
