@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { Plus, Pencil, Trash2, Eye, Search, ChevronUp, ChevronDown, X, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, Search, ChevronUp, ChevronDown, X, AlertTriangle, ChevronLeft, ChevronRight, Building2 } from "lucide-react";
 
 // ── Supabase client ────────────────────────────────────────────────────────────
 const supabase = createClient(
@@ -271,7 +271,9 @@ const Departments: React.FC = () => {
         {/* ── Header row ── */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.2rem" }}>
           <div>
-            <h2 style={{ fontSize: 20, fontWeight: 700, color: "#0f172a", margin: 0, letterSpacing: 2 }}>Departments</h2>
+           <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, letterSpacing: 1, display: "flex", alignItems: "center", gap: 8 }}>
+              <Building2 size={20} color={brandBlue} /> Departments
+            </h2>
             <p style={{ fontSize: 12, color: "#64748b", margin: "3px 0 0" }}>Manage office departments and their equipment.</p>
           </div>
           <button

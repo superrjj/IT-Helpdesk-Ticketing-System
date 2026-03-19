@@ -4,6 +4,7 @@ import {
   Plus, Pencil, Trash2, Eye, Search,
   ChevronUp, ChevronDown, X, AlertTriangle,
   ChevronLeft, ChevronRight, Wrench,
+  ClipboardList, Loader, CheckCircle, Users,
 } from "lucide-react";
 
 const supabase = createClient(
@@ -11,7 +12,7 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY as string
 );
 
-type RepairStatus = "Pending" | "In Progress" | "Completed" | "Cancelled";
+type RepairStatus = "Pending" | "In Progress" | "Completed";
 type SortField    = "status" | "created_at" | "started_at" | "completed_at";
 type SortDir      = "asc" | "desc";
 type ModalMode    = "add" | "edit" | "view" | null;
@@ -19,7 +20,7 @@ type ModalMode    = "add" | "edit" | "view" | null;
 type Repair = {
   id:             string;
   file_report_id: string | null;
-  assigned_to:    string | null;
+  assigned_to:    string[];           // array of user UUIDs
   problem:        string | null;
   action_taken:   string;
   status:         RepairStatus;
@@ -27,18 +28,18 @@ type Repair = {
   completed_at:   string | null;
   created_at:     string;
   updated_at:     string;
-  // joined
-  technician_name?: string;
-  ticket_number?:   string;
-  ticket_title?:    string;
+  // resolved client-side
+  technician_names?: string[];
+  ticket_number?:    string;
+  ticket_title?:     string;
 };
 
 type TicketOption = { id: string; ticket_number: string; title: string };
-type UserOption   = { id: string; full_name: string; username: string };
+type UserOption   = { id: string; full_name: string; role: string };
 
 type FormState = {
   file_report_id: string;
-  assigned_to:    string;
+  assigned_to:    string[];
   problem:        string;
   action_taken:   string;
   status:         RepairStatus;
@@ -48,7 +49,7 @@ type FormState = {
 
 const BRAND     = "#0a4c86";
 const PAGE_SIZE = 10;
-const REPAIR_STATUSES: RepairStatus[] = ["Pending", "In Progress", "Completed", "Cancelled"];
+const REPAIR_STATUSES: RepairStatus[] = ["Pending", "In Progress", "Completed"];
 
 function sanitize(val: string): string {
   return val
@@ -57,11 +58,11 @@ function sanitize(val: string): string {
 }
 
 function validateForm(form: FormState): string {
-  if (!form.file_report_id) return "Please select a ticket.";
-  if (!form.assigned_to) return "Please assign a technician.";
+  if (!form.file_report_id)          return "Please select a ticket.";
+  if (form.assigned_to.length === 0) return "Please assign at least one technician.";
   if (!REPAIR_STATUSES.includes(form.status)) return "Invalid status selected.";
   if (form.action_taken.trim().length > 2000) return "Action taken must be 2000 characters or less.";
-  if (form.problem.trim().length > 500) return "Problem must be 500 characters or less.";
+  if (form.problem.trim().length > 500)       return "Problem must be 500 characters or less.";
   if (form.started_at && form.completed_at) {
     if (new Date(form.completed_at) < new Date(form.started_at))
       return "End date cannot be before the start date.";
@@ -75,7 +76,7 @@ function validateForm(form: FormState): string {
 
 const emptyForm = (): FormState => ({
   file_report_id: "",
-  assigned_to:    "",
+  assigned_to:    [],
   problem:        "",
   action_taken:   "",
   status:         "Pending",
@@ -94,7 +95,6 @@ const statusMeta: Record<RepairStatus, { bg: string; color: string; dot: string 
   "Pending":     { bg: "rgba(100,116,139,0.10)", color: "#475569", dot: "#94a3b8" },
   "In Progress": { bg: "rgba(234,179,8,0.12)",   color: "#a16207", dot: "#eab308" },
   "Completed":   { bg: "rgba(22,163,74,0.10)",   color: "#15803d", dot: "#16a34a" },
-  "Cancelled":   { bg: "rgba(220,38,38,0.10)",   color: "#b91c1c", dot: "#dc2626" },
 };
 
 const RepairStatusBadge: React.FC<{ status: string }> = ({ status }) => {
@@ -114,6 +114,77 @@ const RepairStatusBadge: React.FC<{ status: string }> = ({ status }) => {
 
 const fmtDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "—";
+
+// ── Technician multi-select picker ─────────────────────────────────────────────
+const TechnicianPicker: React.FC<{
+  users: UserOption[];
+  selected: string[];
+  onChange: (ids: string[]) => void;
+  hasError: boolean;
+}> = ({ users, selected, onChange, hasError }) => {
+  const toggle = (id: string) =>
+    onChange(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id]);
+
+  return (
+    <div style={{
+      border: `1px solid ${hasError ? "#fca5a5" : "#e2e8f0"}`,
+      borderRadius: 8, background: "#f8fafc",
+      maxHeight: 180, overflowY: "auto", padding: "0.4rem",
+      display: "flex", flexDirection: "column", gap: 2,
+    }}>
+      {users.length === 0 ? (
+        <div style={{ padding: "0.5rem", fontSize: 12, color: "#94a3b8" }}>No active technicians found.</div>
+      ) : users.map(u => {
+        const active = selected.includes(u.id);
+        return (
+          <button key={u.id} type="button" onClick={() => toggle(u.id)}
+            style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "0.45rem 0.6rem", borderRadius: 6, border: "none",
+              background: active ? `${BRAND}10` : "transparent",
+              cursor: "pointer", textAlign: "left", width: "100%",
+              transition: "background 0.12s",
+            }}>
+            <span style={{
+              width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+              border: `1.5px solid ${active ? BRAND : "#cbd5e1"}`,
+              background: active ? BRAND : "#fff",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              {active && (
+                <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+                  <path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              )}
+            </span>
+            <span style={{ fontSize: 13, fontWeight: active ? 600 : 400, color: active ? BRAND : "#374151", fontFamily: "'Poppins', sans-serif" }}>
+              {u.full_name}
+            </span>
+            <span style={{ fontSize: 11, color: "#94a3b8", marginLeft: "auto" }}>{u.role}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
+// ── Technician name chips (display) ───────────────────────────────────────────
+const TechnicianChips: React.FC<{ names: string[] }> = ({ names }) => {
+  if (!names || names.length === 0)
+    return <span style={{ color: "#cbd5e1" }}>—</span>;
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+      {names.map((name, i) => (
+        <span key={i} style={{
+          fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999,
+          background: "rgba(10,76,134,0.07)", color: BRAND, whiteSpace: "nowrap",
+        }}>
+          {name}
+        </span>
+      ))}
+    </div>
+  );
+};
 
 const Repairs: React.FC = () => {
   const [repairs, setRepairs]           = useState<Repair[]>([]);
@@ -139,6 +210,12 @@ const Repairs: React.FC = () => {
     setTimeout(() => setToast(null), 3500);
   };
 
+  const userMap = useMemo(() => {
+    const m: Record<string, UserOption> = {};
+    users.forEach(u => { m[u.id] = u; });
+    return m;
+  }, [users]);
+
   const fetchRepairs = async () => {
     setLoading(true);
     const { data, error } = await supabase
@@ -147,7 +224,6 @@ const Repairs: React.FC = () => {
         id, file_report_id, assigned_to,
         problem, action_taken, status,
         started_at, completed_at, created_at, updated_at,
-        user_accounts ( full_name ),
         file_reports ( ticket_number, title )
       `)
       .order(sortField, { ascending: sortDir === "asc" });
@@ -158,12 +234,11 @@ const Repairs: React.FC = () => {
     } else {
       const mapped = (data ?? []).map((r: any) => ({
         ...r,
-        technician_name: r.user_accounts?.full_name    ?? null,
-        ticket_number:   r.file_reports?.ticket_number ?? null,
-        ticket_title:    r.file_reports?.title         ?? null,
+        assigned_to:   Array.isArray(r.assigned_to) ? r.assigned_to : [],
+        ticket_number: r.file_reports?.ticket_number ?? null,
+        ticket_title:  r.file_reports?.title         ?? null,
       }));
       setRepairs(mapped);
-      // Build set of already-assigned ticket IDs
       const ids = new Set<string>(
         mapped
           .filter((r: Repair) => r.file_report_id)
@@ -176,15 +251,8 @@ const Repairs: React.FC = () => {
 
   const fetchDropdowns = async () => {
     const [{ data: tix }, { data: ua }] = await Promise.all([
-      supabase
-        .from("file_reports")
-        .select("id, ticket_number, title")
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("user_accounts")
-        .select("id, full_name, username")
-        .eq("is_active", true)
-        .order("full_name"),
+      supabase.from("file_reports").select("id, ticket_number, title").order("created_at", { ascending: false }),
+      supabase.from("user_accounts").select("id, full_name, role").eq("is_active", true).eq("role", "IT Staff").order("full_name"),
     ]);
     setTickets((tix ?? []) as TicketOption[]);
     setUsers((ua ?? []) as UserOption[]);
@@ -193,17 +261,26 @@ const Repairs: React.FC = () => {
   useEffect(() => { fetchRepairs(); }, [sortField, sortDir]);
   useEffect(() => { fetchDropdowns(); }, []);
 
+  const repairsWithNames = useMemo(() =>
+    repairs.map(r => ({
+      ...r,
+      technician_names: (r.assigned_to ?? [])
+        .map(id => userMap[id]?.full_name)
+        .filter(Boolean) as string[],
+    })),
+  [repairs, userMap]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return repairs.filter(r => {
+    return repairsWithNames.filter(r => {
       const matchSearch = !q || [
-        r.ticket_number ?? "", r.technician_name ?? "",
-        r.action_taken,  r.problem ?? "", r.ticket_title ?? "",
+        r.ticket_number ?? "", r.action_taken, r.problem ?? "", r.ticket_title ?? "",
+        ...(r.technician_names ?? []),
       ].some(v => v.toLowerCase().includes(q));
       const matchStatus = filterStatus === "All" || r.status === filterStatus;
       return matchSearch && matchStatus;
     });
-  }, [repairs, search, filterStatus]);
+  }, [repairsWithNames, search, filterStatus]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -227,22 +304,19 @@ const Repairs: React.FC = () => {
     pending:    repairs.filter(r => r.status === "Pending").length,
     inProgress: repairs.filter(r => r.status === "In Progress").length,
     completed:  repairs.filter(r => r.status === "Completed").length,
-    cancelled:  repairs.filter(r => r.status === "Cancelled").length,
   }), [repairs]);
 
   const closeModal = () => {
     setModalMode(null); setSelected(null);
     setForm(emptyForm()); setFormError(""); setSubmitting(false);
   };
-
   const openAdd  = () => { closeModal(); setModalMode("add"); };
   const openView = (r: Repair) => { setSelected(r); setModalMode("view"); };
   const openEdit = (r: Repair) => {
-    closeModal();
-    setSelected(r);
+    closeModal(); setSelected(r);
     setForm({
       file_report_id: r.file_report_id ?? "",
-      assigned_to:    r.assigned_to    ?? "",
+      assigned_to:    Array.isArray(r.assigned_to) ? r.assigned_to : [],
       problem:        r.problem        ?? "",
       action_taken:   r.action_taken,
       status:         r.status,
@@ -252,9 +326,6 @@ const Repairs: React.FC = () => {
     setModalMode("edit");
   };
 
-  // Tickets available in the dropdown:
-  // - all unassigned tickets
-  // - plus the one currently linked to THIS repair (so it stays selectable when editing)
   const availableTickets = useMemo(() => {
     return tickets.filter(t => {
       const isAssignedElsewhere = assignedTicketIds.has(t.id) && t.id !== selected?.file_report_id;
@@ -279,7 +350,7 @@ const Repairs: React.FC = () => {
 
     const payload = {
       file_report_id: form.file_report_id || null,
-      assigned_to:    form.assigned_to    || null,
+      assigned_to:    form.assigned_to,
       problem:        sanitize(form.problem),
       action_taken:   sanitize(form.action_taken),
       status:         form.status,
@@ -373,20 +444,21 @@ const Repairs: React.FC = () => {
         </div>
 
         {/* Stat cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "0.75rem", marginBottom: "1.2rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.75rem", marginBottom: "1.2rem" }}>
           {[
-            { label: "Total",       value: counts.total,      color: BRAND     },
-            { label: "Pending",     value: counts.pending,    color: "#475569" },
-            { label: "In Progress", value: counts.inProgress, color: "#a16207" },
-            { label: "Completed",   value: counts.completed,  color: "#15803d" },
-            { label: "Cancelled",   value: counts.cancelled,  color: "#b91c1c" },
+            { label: "Total",       value: counts.total,      color: BRAND,     icon: <Wrench size={16} /> },
+            { label: "Pending",     value: counts.pending,    color: "#475569", icon: <ClipboardList size={16} /> },
+            { label: "In Progress", value: counts.inProgress, color: "#a16207", icon: <Loader size={16} /> },
+            { label: "Completed",   value: counts.completed,  color: "#15803d", icon: <CheckCircle size={16} /> },
           ].map(c => (
-            <div key={c.label} style={{
-              background: "#fff", borderRadius: 14, padding: "0.85rem 1rem",
-              border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(15,23,42,0.05)",
-            }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>{c.label}</div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: c.color }}>{c.value}</div>
+            <div key={c.label} style={{ background: "#fff", borderRadius: 14, padding: "0.9rem 1rem", border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(15,23,42,0.05)", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: `${c.color}15`, display: "flex", alignItems: "center", justifyContent: "center", color: c.color }}>
+                  {c.icon}
+                </div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: c.color }}>{c.value}</div>
+              </div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "#64748b", letterSpacing: "0.08em", textTransform: "uppercase" }}>{c.label}</div>
             </div>
           ))}
         </div>
@@ -416,14 +488,14 @@ const Repairs: React.FC = () => {
               <thead>
                 <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
                   {([
-                    { label: "Ticket No.",  field: null },
-                    { label: "Problem",     field: null },
-                    { label: "Technician",  field: null },
-                    { label: "Status",      field: "status"       as SortField },
-                    { label: "Start Date",  field: "started_at"   as SortField },
-                    { label: "End Date",    field: "completed_at" as SortField },
-                    { label: "Created",     field: "created_at"   as SortField },
-                    { label: "Actions",     field: null },
+                    { label: "Ticket No.",    field: null },
+                    { label: "Problem",       field: null },
+                    { label: "Technician(s)", field: null },
+                    { label: "Status",        field: "status"       as SortField },
+                    { label: "Start Date",    field: "started_at"   as SortField },
+                    { label: "End Date",      field: "completed_at" as SortField },
+                    { label: "Created",       field: "created_at"   as SortField },
+                    { label: "Actions",       field: null },
                   ] as { label: string; field: SortField | null }[]).map(col => (
                     <th key={col.label}
                       onClick={() => col.field && toggleSort(col.field)}
@@ -453,14 +525,31 @@ const Repairs: React.FC = () => {
                         : <span style={{ color: "#cbd5e1" }}>—</span>
                       }
                     </td>
-                    <td style={{ padding: "0.75rem 1rem", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <td style={{ padding: "0.75rem 1rem", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {r.problem
                         ? <span style={{ fontWeight: 500 }}>{r.problem}</span>
                         : <span style={{ color: "#cbd5e1" }}>—</span>
                       }
                     </td>
-                    <td style={{ padding: "0.75rem 1rem", color: "#475569" }}>
-                      {r.technician_name ?? <span style={{ color: "#cbd5e1" }}>—</span>}
+                    <td style={{ padding: "0.75rem 1rem", maxWidth: 220 }}>
+                      <div style={{ display: "flex", flexWrap: "nowrap", gap: 4, overflow: "hidden" }}>
+                        {(r.technician_names ?? []).length === 0 ? (
+                          <span style={{ color: "#cbd5e1" }}>—</span>
+                        ) : (r.technician_names ?? []).length === 1 ? (
+                          <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999, background: "rgba(10,76,134,0.07)", color: BRAND, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 200 }}>
+                            {r.technician_names![0]}
+                          </span>
+                        ) : (
+                          <>
+                            <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999, background: "rgba(10,76,134,0.07)", color: BRAND, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 140 }}>
+                              {r.technician_names![0]}
+                            </span>
+                            <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999, background: `${BRAND}18`, color: BRAND, whiteSpace: "nowrap", flexShrink: 0 }}>
+                              +{(r.technician_names ?? []).length - 1}
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </td>
                     <td style={{ padding: "0.75rem 1rem" }}><RepairStatusBadge status={r.status} /></td>
                     <td style={{ padding: "0.75rem 1rem", color: "#64748b", whiteSpace: "nowrap" }}>{fmtDate(r.started_at)}</td>
@@ -524,21 +613,14 @@ const Repairs: React.FC = () => {
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.9rem" }}>
 
-                {/* Ticket selector — full width */}
+                {/* Ticket selector */}
                 <div style={{ gridColumn: "span 2" }}>
-                  <label style={labelStyle}>
-                    Ticket No. <span style={{ color: "#dc2626" }}>*</span>
-                  </label>
-                  <select
-                    value={form.file_report_id}
-                    onChange={e => handleTicketChange(e.target.value)}
-                    style={{ ...selectStyle, borderColor: formError && !form.file_report_id ? "#fca5a5" : "#e2e8f0" }}
-                  >
+                  <label style={labelStyle}>Ticket No. <span style={{ color: "#dc2626" }}>*</span></label>
+                  <select value={form.file_report_id} onChange={e => handleTicketChange(e.target.value)}
+                    style={{ ...selectStyle, borderColor: formError && !form.file_report_id ? "#fca5a5" : "#e2e8f0" }}>
                     <option value="">— Select a ticket —</option>
                     {availableTickets.map(t => (
-                      <option key={t.id} value={t.id}>
-                        {t.ticket_number} — {t.title}
-                      </option>
+                      <option key={t.id} value={t.id}>{t.ticket_number} — {t.title}</option>
                     ))}
                   </select>
                   {form.file_report_id && (
@@ -548,34 +630,37 @@ const Repairs: React.FC = () => {
                   )}
                 </div>
 
-                {/* Problem — full width */}
+                {/* Problem */}
                 <div style={{ gridColumn: "span 2" }}>
-                  <label style={labelStyle}>
-                    Problem <span style={{ color: "#dc2626" }}>*</span>
-                  </label>
-                  <input
-                    value={form.problem}
+                  <label style={labelStyle}>Problem <span style={{ color: "#dc2626" }}>*</span></label>
+                  <input value={form.problem}
                     onChange={e => { setForm(f => ({ ...f, problem: e.target.value })); setFormError(""); }}
-                    placeholder="Describe the problem…"
-                    maxLength={500}
+                    placeholder="Describe the problem…" maxLength={500}
                     style={{ ...inputStyle, borderColor: formError && !form.problem.trim() ? "#fca5a5" : "#e2e8f0" }}
                   />
                   <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2, textAlign: "right" }}>{form.problem.length}/500</div>
                 </div>
 
-                {/* Technician */}
-                <div>
-                  <label style={labelStyle}>Assigned Technician <span style={{ color: "#dc2626" }}>*</span></label>
-                  <select value={form.assigned_to}
-                    onChange={e => { setForm(f => ({ ...f, assigned_to: e.target.value })); setFormError(""); }}
-                    style={{ ...selectStyle, borderColor: formError && !form.assigned_to ? "#fca5a5" : "#e2e8f0" }}>
-                    <option value="">— Select technician —</option>
-                    {users.map(u => <option key={u.id} value={u.id}>{u.full_name} (@{u.username})</option>)}
-                  </select>
+                {/* Technician multi-picker */}
+                <div style={{ gridColumn: "span 2" }}>
+                  <label style={{ ...labelStyle, display: "flex", alignItems: "center", gap: 6 }}>
+                    <Users size={13} color="#475569" /> Assigned Technician(s) <span style={{ color: "#dc2626" }}>*</span>
+                    {form.assigned_to.length > 0 && (
+                      <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 600, color: BRAND, background: `${BRAND}10`, padding: "1px 8px", borderRadius: 999 }}>
+                        {form.assigned_to.length} selected
+                      </span>
+                    )}
+                  </label>
+                  <TechnicianPicker
+                    users={users}
+                    selected={form.assigned_to}
+                    onChange={ids => { setForm(f => ({ ...f, assigned_to: ids })); setFormError(""); }}
+                    hasError={!!(formError && form.assigned_to.length === 0)}
+                  />
                 </div>
 
                 {/* Status */}
-                <div>
+                <div style={{ gridColumn: "span 2" }}>
                   <label style={labelStyle}>Status <span style={{ color: "#dc2626" }}>*</span></label>
                   <select value={form.status}
                     onChange={e => {
@@ -628,7 +713,6 @@ const Repairs: React.FC = () => {
                   />
                   <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2, textAlign: "right" }}>{form.action_taken.length}/2000</div>
                 </div>
-
               </div>
 
               {formError && (
@@ -672,19 +756,36 @@ const Repairs: React.FC = () => {
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", marginBottom: "1rem" }}>
-                {[
-                  { label: "Ticket No.",  value: selected.ticket_number ?? "—" },
-                  { label: "Problem",     value: selected.problem ?? "—" },
-                  { label: "Technician",  value: selected.technician_name ?? "—" },
-                  { label: "Start Date",  value: fmtDate(selected.started_at) },
-                  { label: "End Date",    value: fmtDate(selected.completed_at) },
-                  { label: "Created",     value: fmtDate(selected.created_at) },
-                ].map(row => (
-                  <div key={row.label} className="rp-detail-row">
-                    <span className="rp-detail-label">{row.label}</span>
-                    <span style={{ color: "#0f172a" }}>{row.value}</span>
+                <div className="rp-detail-row">
+                  <span className="rp-detail-label">Ticket No.</span>
+                  <span style={{ color: "#0f172a" }}>{selected.ticket_number ?? "—"}</span>
+                </div>
+                <div className="rp-detail-row">
+                  <span className="rp-detail-label">Problem</span>
+                  <span style={{ color: "#0f172a" }}>{selected.problem ?? "—"}</span>
+                </div>
+                <div className="rp-detail-row">
+                  <span className="rp-detail-label">Technician(s)</span>
+                  <div style={{ flex: 1 }}>
+                    <TechnicianChips names={
+                      (selected.assigned_to ?? [])
+                        .map(id => userMap[id]?.full_name)
+                        .filter(Boolean) as string[]
+                    } />
                   </div>
-                ))}
+                </div>
+                <div className="rp-detail-row">
+                  <span className="rp-detail-label">Start Date</span>
+                  <span style={{ color: "#0f172a" }}>{fmtDate(selected.started_at)}</span>
+                </div>
+                <div className="rp-detail-row">
+                  <span className="rp-detail-label">End Date</span>
+                  <span style={{ color: "#0f172a" }}>{fmtDate(selected.completed_at)}</span>
+                </div>
+                <div className="rp-detail-row">
+                  <span className="rp-detail-label">Created</span>
+                  <span style={{ color: "#0f172a" }}>{fmtDate(selected.created_at)}</span>
+                </div>
               </div>
 
               {selected.action_taken && (
@@ -734,7 +835,6 @@ const Repairs: React.FC = () => {
             </div>
           </div>
         )}
-
       </div>
     </>
   );
