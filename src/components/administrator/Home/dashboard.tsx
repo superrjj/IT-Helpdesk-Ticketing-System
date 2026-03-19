@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createClient } from "@supabase/supabase-js";
-import Sidebar from "./sidebar";
-import Header from "./header";
-import Departments from "../department/department";
-import FileReports from "../submit-ticket/submitTicket";
+import Sidebar from "../Dashboard/sidebar";
+import Header from "../Dashboard/header";
+import Departments from "../Management/department";
+import FileReports from "../Ticket & Repairs/submitTicket";
 import Repairs from "../repairs/repairs";
-import UserAccounts from "../accounts/user-accounts";
+import UserAccounts from "../Management/user-accounts";
 
 // ── Supabase client ────────────────────────────────────────────────────────────
 const supabase = createClient(
