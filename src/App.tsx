@@ -1,7 +1,7 @@
 // App.tsx
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import LoginPage from './components/login-page'
-import Dashboard from './components/dashboard/dashboard'
+import Dashboard from './components/administrator/dashboard/dashboard'
 
 /** Returns true if a valid, non-expired session exists in localStorage */
 function isSessionValid(): boolean {

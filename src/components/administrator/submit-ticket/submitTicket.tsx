@@ -6,6 +6,7 @@ import {
   ChevronLeft, ChevronRight, FileText,
   Monitor, Cpu, Wifi, Building2,
   Clock, CheckCircle, AlertCircle, Loader, User, Users,
+  Ticket,
 } from "lucide-react";
 
 const supabase = createClient(
@@ -15,7 +16,7 @@ const supabase = createClient(
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type IssueType = "Hardware" | "Software" | "Network / Internet";
-type Status    = "Open" | "In Progress" | "Resolved";
+type Status    = "Pending" | "In Progress" | "Resolved";
 type SortField = "title" | "issue_type" | "status" | "date_submitted";
 type SortDir   = "asc" | "desc";
 type ModalMode = "add" | "edit" | "view" | null;
@@ -26,7 +27,7 @@ type FileReport = {
   department_id:  string;
   issue_type:     IssueType;
   title:          string;
-  description:    string;
+  description:    string; 
   status:         Status;
   date_submitted: string;
   assigned_to:    string[];
@@ -57,7 +58,7 @@ const BRAND     = "#0a4c86";
 const PAGE_SIZE = 10;
 
 const ISSUE_TYPES: IssueType[] = ["Hardware", "Software", "Network / Internet"];
-const STATUSES:    Status[]    = ["Open", "In Progress", "Resolved"];
+const STATUSES:    Status[]    = ["Pending", "In Progress", "Resolved"];
 
 const ISSUE_TYPE_CONFIG: Record<IssueType, { icon: React.ReactNode; bg: string; activeBg: string; color: string; border: string }> = {
   "Hardware":           { icon: <Cpu size={14} />,     bg: "#f8fafc", activeBg: "rgba(10,76,134,0.08)",  color: "#0a4c86", border: "#0a4c86" },
@@ -72,7 +73,7 @@ const ISSUE_TYPE_BADGE_CONFIG: Record<IssueType, { icon: React.ReactNode; bg: st
 };
 
 const STATUS_CONFIG: Record<Status, { icon: React.ReactNode; bg: string; color: string }> = {
-  "Open":        { icon: <AlertCircle size={11} />, bg: "rgba(59,130,246,0.10)", color: "#1d4ed8" },
+  "Pending":        { icon: <AlertCircle size={11} />, bg: "rgba(59,130,246,0.10)", color: "#475569" },
   "In Progress": { icon: <Loader size={11} />,      bg: "rgba(234,179,8,0.11)",  color: "#a16207" },
   "Resolved":    { icon: <CheckCircle size={11} />, bg: "rgba(22,163,74,0.10)",  color: "#15803d" },
 };
@@ -114,8 +115,9 @@ function friendlyError(msg: string): string {
   return msg;
 }
 
+// ✅ CHANGED: full month name, Philippine timezone
 const fmtDate = (iso: string | null | undefined) =>
-  iso ? new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "—";
+  iso ? new Date(iso).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Manila" }) : "—";
 
 // ── Badges ─────────────────────────────────────────────────────────────────────
 const IssueTypeBadge: React.FC<{ type: string }> = ({ type }) => {
@@ -176,7 +178,7 @@ const TechnicianPicker: React.FC<{
   const toggle = (id: string) =>
     onChange(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id]);
   return (
-    <div style={{ border: `1px solid ${hasError ? "#fca5a5" : "#e2e8f0"}`, borderRadius: 8, background: "#f8fafc", maxHeight: 180, overflowY: "auto", padding: "0.4rem", display: "flex", flexDirection: "column", gap: 2 }}>
+    <div style={{ border: `1px solid ${hasError ? "#fca5a5" : "#e2e8f0"}`, borderRadius: 8, background: "#f8fafc", maxHeight: 130, overflowY: "auto", padding: "0.4rem", display: "flex", flexDirection: "column", gap: 2 }}>
       {users.length === 0 ? (
         <div style={{ padding: "0.5rem", fontSize: 12, color: "#94a3b8" }}>No active IT Staff found.</div>
       ) : users.map(u => {
@@ -242,7 +244,7 @@ const SubmitTicket: React.FC = () => {
     ] = await Promise.all([
       supabase.from("file_reports").select("*").order(sortField, { ascending: sortDir === "asc" }),
       supabase.from("departments").select("id, name").order("name"),
-      supabase.from("user_accounts").select("id, full_name, role").eq("is_active", true).eq("role", "IT Staff").order("full_name"),
+      supabase.from("user_accounts").select("id, full_name, role").eq("is_active", true).eq("role", "IT Technician").order("full_name"),
     ]);
     // Set lookup tables first so names resolve immediately when reports render
     setDepartments((depts ?? []) as Department[]);
@@ -292,7 +294,7 @@ const SubmitTicket: React.FC = () => {
 
   const counts = useMemo(() => ({
     total:      reports.length,
-    open:       reports.filter(r => r.status === "Open").length,
+    open:       reports.filter(r => r.status === "Pending").length,
     inProgress: reports.filter(r => r.status === "In Progress").length,
     resolved:   reports.filter(r => r.status === "Resolved").length,
   }), [reports]);
@@ -335,7 +337,7 @@ const SubmitTicket: React.FC = () => {
     };
 
     if (modalMode === "add") {
-      const { error } = await supabase.from("file_reports").insert({ ...payload, status: "Open" });
+      const { error } = await supabase.from("file_reports").insert({ ...payload, status: "Pending" });
       if (error) { setFormError(friendlyError(error.message)); setSubmitting(false); return; }
       showToast("Ticket submitted successfully.", "success");
     } else if (modalMode === "edit" && selected) {
@@ -421,8 +423,8 @@ const SubmitTicket: React.FC = () => {
         {/* Stat cards */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.75rem", marginBottom: "1.2rem" }}>
           {[
-            { label: "Total Tickets", value: counts.total,      color: BRAND,     icon: <FileText size={16} /> },
-            { label: "Open",          value: counts.open,       color: "#1d4ed8", icon: <AlertCircle size={16} /> },
+            { label: "Total Tickets", value: counts.total,      color: BRAND,     icon: <Ticket size={16} /> },
+            { label: "Pending",          value: counts.open,       color: "#475569", icon: <FileText size={16} /> },
             { label: "In Progress",   value: counts.inProgress, color: "#a16207", icon: <Loader size={16} /> },
             { label: "Resolved",      value: counts.resolved,   color: "#15803d", icon: <CheckCircle size={16} /> },
           ].map(c => (
@@ -501,8 +503,9 @@ const SubmitTicket: React.FC = () => {
                       <TechnicianCell names={r.technician_names ?? []} />
                     </td>
                     <td style={{ padding: "0.75rem 1rem" }}><StatusBadge status={r.status} /></td>
+                    {/* ✅ CHANGED: full month name, Philippine timezone */}
                     <td style={{ padding: "0.75rem 1rem", color: "#64748b", whiteSpace: "nowrap" }}>
-                      {new Date(r.date_submitted).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+                      {new Date(r.date_submitted).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Manila" })}
                     </td>
                     <td style={{ padding: "0.75rem 1rem" }}>
                       <div style={{ display: "flex", gap: 6 }}>
@@ -680,9 +683,14 @@ const SubmitTicket: React.FC = () => {
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: BRAND, marginBottom: 4 }}>Ticket Information</div>
               <div style={{ display: "flex", flexDirection: "column", marginBottom: "1rem" }}>
                 {[
-                  { label: "Employee",    value: selected.employee_name,                                                                                          icon: <User size={12} /> },
-                  { label: "Department",  value: getDepartmentName(selected.department_id),                                                                        icon: <Building2 size={12} /> },
-                  { label: "Submitted",   value: new Date(selected.date_submitted).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }), icon: <Clock size={12} /> },
+                  { label: "Employee",    value: selected.employee_name, icon: <User size={12} /> },
+                  { label: "Department",  value: getDepartmentName(selected.department_id), icon: <Building2 size={12} /> },
+                  {
+                    // ✅ CHANGED: full month name, Philippine timezone
+                    label: "Submitted",
+                    value: new Date(selected.date_submitted).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Manila" }),
+                    icon: <Clock size={12} />,
+                  },
                   { label: "Assigned To", value: <TechnicianChips names={(selected.assigned_to ?? []).map(id => userMap[id]?.full_name).filter(Boolean) as string[]} />, icon: <Users size={12} /> },
                 ].map(row => (
                   <div key={row.label} className="ticket-detail-row">
@@ -701,7 +709,7 @@ const SubmitTicket: React.FC = () => {
                 </div>
               )}
 
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#15803d", marginBottom: 4, marginTop: "0.5rem" }}>IT Staff Response</div>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#15803d", marginBottom: 4, marginTop: "0.5rem" }}>IT Technician Response</div>
               <div style={{ display: "flex", flexDirection: "column", marginBottom: "1rem" }}>
                 {[
                   { label: "Start Date", value: fmtDate(selected.started_at),  icon: <Clock size={12} /> },
@@ -723,7 +731,7 @@ const SubmitTicket: React.FC = () => {
                 </div>
               ) : (
                 <div style={{ padding: "0.6rem 0.8rem", borderRadius: 8, background: "#f8fafc", border: "1px solid #e2e8f0", fontSize: 12, color: "#94a3b8", marginBottom: "1rem" }}>
-                  No action taken yet — pending IT Staff response.
+                  No action taken yet — pending IT Technician response.
                 </div>
               )}
 
