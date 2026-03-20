@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogOut } from "lucide-react";
+import { LogOut, Menu } from "lucide-react";
 
 const brandBlue = "#0a4c86";
 
@@ -150,14 +150,38 @@ const headerStyles = `
     font-size: 0.8rem;
     margin-top: -0.65rem;
   }
+
+  .hdr-menu-btn {
+    display: none;
+    align-items: center; justify-content: center;
+    width: 40px; height: 40px;
+    border-radius: 10px; border: none;
+    background: #f1f5f9; color: #475569;
+    cursor: pointer; flex-shrink: 0;
+  }
+  @media (max-width: 1024px) {
+    .hdr-menu-btn { display: flex; }
+    .hdr-user-name { display: none; }
+    .hdr-datetime { font-size: 14px; }
+    .hdr-date { font-size: 12px; }
+  }
+  @media (max-width: 640px) {
+    .hdr-main { flex-wrap: wrap; gap: 0.5rem; }
+    .hdr-datetime { font-size: 13px; }
+    .hdr-date { font-size: 11px; }
+    .hdr-user-block { gap: 0.5rem; }
+    .hdr-avatar { width: 36px; height: 36px; font-size: 14px; }
+    .hdr-logout-btn { padding: 0.35rem 0.6rem; font-size: 12px; }
+  }
 `;
 
 type HeaderProps = {
   currentUserName: string;
   userRole: string;
+  onMenuClick?: () => void;
 };
 
-const Header: React.FC<HeaderProps> = ({ currentUserName, userRole }) => {
+const Header: React.FC<HeaderProps> = ({ currentUserName, userRole, onMenuClick }) => {
   const navigate = useNavigate();
   const [now, setNow]               = useState(new Date());
   const [showConfirm, setShowConfirm] = useState(false);
@@ -243,26 +267,43 @@ const Header: React.FC<HeaderProps> = ({ currentUserName, userRole }) => {
       )}
 
       <header
+        className="hdr-main"
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           fontFamily: "'Poppins', sans-serif",
+          flexWrap: "wrap",
+          gap: "0.75rem",
         }}
       >
-        {/* Date & Time */}
-        <div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: brandBlue, letterSpacing: "0.02em" }}>
-            {timeStr}
-          </div>
-          <div style={{ fontSize: 14, color: "#64748b", marginTop: 2 }}>
-            {dateStr}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flex: "1 1 auto" }}>
+          {onMenuClick && (
+            <button
+              type="button"
+              className="hdr-menu-btn"
+              onClick={onMenuClick}
+              aria-label="Open menu"
+              style={{ width: 40, height: 40 }}
+            >
+              <Menu size={20} strokeWidth={2} />
+            </button>
+          )}
+          {/* Date & Time */}
+          <div className="hdr-datetime">
+            <div style={{ fontSize: 20, fontWeight: 700, color: brandBlue, letterSpacing: "0.02em" }}>
+              {timeStr}
+            </div>
+            <div className="hdr-date" style={{ fontSize: 14, color: "#64748b", marginTop: 2 }}>
+              {dateStr}
+            </div>
           </div>
         </div>
 
         {/* User + Logout */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+        <div className="hdr-user-block" style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
           <div
+            className="hdr-avatar"
             style={{
               width: 40,
               height: 40,
@@ -279,8 +320,8 @@ const Header: React.FC<HeaderProps> = ({ currentUserName, userRole }) => {
             {initials}
           </div>
 
-          {/* Name + role — centered, role same blue, uppercase */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+          {/* Name + role — hidden on mobile */}
+          <div className="hdr-user-name" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
             <span style={{ fontSize: 15, fontWeight: 600, color: "#0f172a", lineHeight: 1.2 }}>
               {currentUserName}
             </span>
@@ -297,6 +338,7 @@ const Header: React.FC<HeaderProps> = ({ currentUserName, userRole }) => {
           </div>
 
           <button
+            className="hdr-logout-btn"
             onClick={() => setShowConfirm(true)}
             style={{
               display: "flex",

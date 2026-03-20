@@ -394,6 +394,8 @@ const SubmitTicket: React.FC = () => {
         .ticket-detail-row { display: flex; gap: 8px; font-size: 13px; padding: 0.5rem 0; border-bottom: 1px solid #f1f5f9; }
         .ticket-detail-row:last-child { border-bottom: none; }
         .ticket-detail-label { font-size: 12px; font-weight: 600; color: #64748b; min-width: 140px; flex-shrink: 0; display: flex; align-items: center; gap: 6px; }
+        @media (max-width: 1024px) { .ticket-stat-cards { grid-template-columns: repeat(2, 1fr) !important; } }
+        @media (max-width: 480px) { .ticket-stat-cards { grid-template-columns: 1fr !important; } .ticket-header-row { flex-direction: column; align-items: flex-start !important; } }
       `}</style>
 
       <div className="ticket-root" style={{ fontFamily: "'Poppins', sans-serif", color: "#0f172a" }}>
@@ -406,7 +408,7 @@ const SubmitTicket: React.FC = () => {
         )}
 
         {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
+        <div className="ticket-header-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem", flexWrap: "wrap", gap: "0.75rem" }}>
           <div>
             <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, letterSpacing: 1, display: "flex", alignItems: "center", gap: 8 }}>
               <FileText size={20} color={BRAND} /> Submit Ticket
@@ -421,7 +423,7 @@ const SubmitTicket: React.FC = () => {
         </div>
 
         {/* Stat cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.75rem", marginBottom: "1.2rem" }}>
+        <div className="ticket-stat-cards" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.75rem", marginBottom: "1.2rem" }}>
           {[
             { label: "Total Tickets", value: counts.total,      color: BRAND,     icon: <Ticket size={16} /> },
             { label: "Pending",          value: counts.open,       color: "#475569", icon: <FileText size={16} /> },

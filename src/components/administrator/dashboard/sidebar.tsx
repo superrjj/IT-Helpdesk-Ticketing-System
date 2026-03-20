@@ -8,6 +8,7 @@ import {
   CircleArrowDown,
   CircleArrowUp,
   TicketIcon,
+  X,
 } from "lucide-react";
 
 const baseBlue = "#0a4c86";
@@ -64,10 +65,17 @@ type SidebarProps = {
   activeLabel: string;
   onNavigate: (label: string) => void;
   userRole: string;
+  isMobileOpen?: boolean;
+  onMobileClose?: () => void;
 };
 
-const Sidebar: React.FC<SidebarProps> = ({ activeLabel, onNavigate, userRole }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeLabel, onNavigate, userRole, isMobileOpen, onMobileClose }) => {
   const isAdmin = userRole === "Administrator";
+
+  const handleNav = (label: string) => {
+    onNavigate(label);
+    onMobileClose?.();
+  };
 
   return (
     <>
@@ -81,8 +89,28 @@ const Sidebar: React.FC<SidebarProps> = ({ activeLabel, onNavigate, userRole }) 
         .sidebar-btn[data-active="true"]:hover {
           background: ${hoverBlue} !important;
         }
+        @media (max-width: 1024px) {
+          .sidebar-aside { position: fixed; top: 0; left: 0; z-index: 1000;
+            transform: translateX(-100%); transition: transform 0.25s ease;
+            box-shadow: 4px 0 24px rgba(0,0,0,0.12); }
+          .sidebar-aside.sidebar-open { transform: translateX(0); }
+          .sidebar-overlay { display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.4); z-index: 999;
+            opacity: 0; transition: opacity 0.25s; pointer-events: none; }
+          .sidebar-overlay.sidebar-open { display: block; opacity: 1; pointer-events: auto; }
+        }
+        @media (min-width: 1025px) {
+          .sidebar-overlay { display: none !important; }
+          .sidebar-close-btn { display: none !important; }
+        }
       `}</style>
+      <div
+        className={`sidebar-overlay${isMobileOpen ? " sidebar-open" : ""}`}
+        onClick={onMobileClose}
+        aria-hidden="true"
+      />
       <aside
+        className={`sidebar-aside${isMobileOpen ? " sidebar-open" : ""}`}
         style={{
           width: 230,
           height: "100vh",
@@ -100,12 +128,28 @@ const Sidebar: React.FC<SidebarProps> = ({ activeLabel, onNavigate, userRole }) 
         }}
       >
         {/* Logo */}
-        <div style={{ flexShrink: 0 }}>
+        <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
           <img
             src="/masaya-sa-tarlac-city.png"
             alt="Masaya sa Tarlac City"
-            style={{ width: "100%", height: "auto", display: "block", marginBottom: 10 }}
+            style={{ width: "100%", height: "auto", display: "block", flex: 1, minWidth: 0 }}
           />
+          {onMobileClose !== undefined && (
+            <button
+              type="button"
+              onClick={onMobileClose}
+              aria-label="Close menu"
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center",
+                width: 36, height: 36, borderRadius: 10, border: "none",
+                background: "#f1f5f9", color: "#475569", cursor: "pointer",
+                flexShrink: 0,
+              }}
+              className="sidebar-close-btn"
+            >
+              <X size={18} strokeWidth={2} />
+            </button>
+          )}
         </div>
 
         {/* Sectioned Nav - scrollable when menu overflows */}
@@ -145,7 +189,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeLabel, onNavigate, userRole }) 
                       key={label}
                       className="sidebar-btn"
                       data-active={String(active)}
-                      onClick={() => onNavigate(label)}
+                      onClick={() => handleNav(label)}
                       style={{
                         textAlign: "left",
                         padding: "0.55rem 0.7rem",

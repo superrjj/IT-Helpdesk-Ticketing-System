@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { createClient } from "@supabase/supabase-js";
-import Sidebar from "../Dashboard/sidebar";
-import Header from "../Dashboard/header";
+import Sidebar from "../dashboard/sidebar";
+import Header from "../dashboard/header";
 import Departments from "../Management/department";
 import FileReports from "../Ticket & Repairs/submitTicket";
 import ReportAnalytics from "../Reports/report-analytics";
@@ -27,9 +27,6 @@ const accentColorMap: Record<NonNullable<StatCardProps["accent"]>, string> = {
   green:  "#16a34a",
 };
 
-const cardShadow =
-  "0 18px 45px rgba(15,23,42,0.20), 0 1px 4px rgba(15,23,42,0.18)";
-
 const StatCard: React.FC<StatCardProps> = ({ label, value, accent = "blue" }) => {
   const color = accentColorMap[accent];
   return (
@@ -38,8 +35,7 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, accent = "blue" }) =>
         background: "#ffffff",
         borderRadius: 18,
         padding: "1.25rem 1.4rem",
-        boxShadow: cardShadow,
-        border: "1px solid rgba(15,23,42,0.08)",
+        border: "1px solid #e2e8f0",
         display: "flex",
         flexDirection: "column",
         gap: "0.35rem",
@@ -71,6 +67,19 @@ type RepairActivity = {
   detail: string;
   status: string;
   date: string;
+};
+
+type RawRepair = {
+  id: string;
+  issue_description: string | null;
+  status: string;
+  created_at: string;
+  equipment: {
+    name: string;
+    departments: {
+      name: string;
+    } | null;
+  } | null;
 };
 
 const DashboardHome: React.FC = () => {
@@ -134,7 +143,7 @@ const DashboardHome: React.FC = () => {
         .limit(4);
 
       if (repairs) {
-        const activities: RepairActivity[] = repairs.map((r: any) => {
+        const activities: RepairActivity[] = (repairs as unknown as RawRepair[]).map((r) => {
           const equipmentName = r.equipment?.name || "Unknown Equipment";
           const deptName = r.equipment?.departments?.name || "Unknown Department";
           return {
@@ -174,17 +183,17 @@ const DashboardHome: React.FC = () => {
   }
 
   return (
-    <main style={{ display: "grid", gridTemplateColumns: "2.1fr 1.2fr", gap: "1.2rem" }}>
+    <main className="dash-home-grid" style={{ display: "grid", gridTemplateColumns: "2.1fr 1.2fr", gap: "1.2rem" }}>
       {/* Left column */}
       <section style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "0.9rem" }}>
+        <div className="dash-stat-cards" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "0.9rem" }}>
           <StatCard label="Total equipment"   value={totalEquipment} accent="blue"   />
           <StatCard label="Defective devices" value={defectiveCount} accent="red"    />
           <StatCard label="Under repair"      value={repairCount}    accent="yellow" />
           <StatCard label="Active equipment"  value={activeCount}    accent="green"  />
         </div>
 
-        <div style={{ background: "#ffffff", borderRadius: 18, padding: "1.2rem 1.3rem", boxShadow: "0 18px 40px rgba(15,23,42,0.08)", border: "1px solid #e5e7eb" }}>
+        <div style={{ background: "#ffffff", borderRadius: 18, padding: "1.2rem 1.3rem" }}>
           <h2 style={{ fontSize: 14, fontWeight: 600, color: "#111827", marginBottom: "0.8rem" }}>Equipment Per Department</h2>
           {deptStats.length === 0 ? (
             <p style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, padding: "2rem 0" }}>
@@ -216,7 +225,7 @@ const DashboardHome: React.FC = () => {
 
       {/* Right column */}
       <section style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
-        <div style={{ background: "#ffffff", borderRadius: 18, padding: "1.2rem 1.3rem", boxShadow: "0 18px 40px rgba(15,23,42,0.08)", border: "1px solid #e5e7eb" }}>
+        <div style={{ background: "#ffffff", borderRadius: 18, padding: "1.2rem 1.3rem" }}>
           <h2 style={{ fontSize: 14, fontWeight: 600, color: "#111827", marginBottom: "0.8rem" }}>Recent Repair Activities</h2>
           {recentActivities.length === 0 ? (
             <p style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, padding: "2rem 0" }}>
@@ -252,7 +261,10 @@ const DashboardHome: React.FC = () => {
 // ── Dashboard shell ───────────────────────────────────────────────────────────
 const Dashboard: React.FC = () => {
   const [activeLabel, setActiveLabel] = useState("Home");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
+  const openSidebar = useCallback(() => setSidebarOpen(true), []);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
   const currentUserName = localStorage.getItem("session_user_full_name") || "User";
   const userRole        = localStorage.getItem("session_user_role") || "";
   const isAdmin         = userRole === "Administrator";
@@ -278,11 +290,23 @@ const Dashboard: React.FC = () => {
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
-        /* Thin scrollbars to reduce shadow-like appearance */
         .adm-scroll-area::-webkit-scrollbar { width: 8px; height: 8px; }
         .adm-scroll-area::-webkit-scrollbar-track { background: transparent; }
         .adm-scroll-area::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         .adm-scroll-area::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        @media (max-width: 1024px) {
+          .adm-main-wrap { padding: 1rem 1rem 1.2rem !important; }
+        }
+        @media (max-width: 640px) {
+          .adm-main-wrap { padding: 0.75rem 0.75rem 1rem !important; }
+        }
+        @media (max-width: 1024px) {
+          .dash-home-grid { grid-template-columns: 1fr !important; }
+          .dash-stat-cards { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+        @media (max-width: 480px) {
+          .dash-stat-cards { grid-template-columns: 1fr !important; }
+        }
       `}</style>
       <div style={{
         height: "100vh",
@@ -297,9 +321,11 @@ const Dashboard: React.FC = () => {
           activeLabel={activeLabel}
           onNavigate={setActiveLabel}
           userRole={userRole}
+          isMobileOpen={sidebarOpen}
+          onMobileClose={closeSidebar}
         />
 
-        <div style={{
+        <div className="adm-main-wrap" style={{
           flex: 1,
           minHeight: 0,
           padding: "1.4rem 1.8rem 1.8rem",
@@ -308,9 +334,12 @@ const Dashboard: React.FC = () => {
           gap: "1.2rem",
           overflow: "hidden",
         }}>
-          {/* Pass both name and role to Header */}
           <div style={{ flexShrink: 0 }}>
-            <Header currentUserName={currentUserName} userRole={userRole} />
+            <Header
+              currentUserName={currentUserName}
+              userRole={userRole}
+              onMenuClick={openSidebar}
+            />
           </div>
           <div className="adm-scroll-area" style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
             {PAGE_MAP[activeLabel] ?? <DashboardHome />}

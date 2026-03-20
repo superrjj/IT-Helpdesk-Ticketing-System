@@ -274,6 +274,12 @@ const styles = `
     font-size: 0.72rem; color: #6b7280;
   }
 
+  @media (max-width: 768px) {
+    .lp-root { align-items: flex-start; padding-top: 2rem; padding-bottom: 2rem; }
+    .lp-card { margin: 1.25rem; padding: 2rem 1.75rem 1.75rem; max-width: none; }
+    .lp-city-logo { width: 200px; }
+  }
+
   @media (max-width: 600px) {
     .lp-create-grid { grid-template-columns: 1fr; }
     .lp-span2 { grid-column: span 1; }
@@ -281,6 +287,21 @@ const styles = `
     .lp-city-logo { width: 180px; }
     .lp-modal { max-width: 100%; }
     .lp-modal-header, .lp-modal-body, .lp-modal-footer { padding-left: 1rem; padding-right: 1rem; }
+  }
+
+  @media (max-width: 480px) {
+    .lp-root { padding-top: 1rem; padding-bottom: 1rem; }
+    .lp-card { margin: 0.75rem; padding: 1.5rem 1.25rem 1.5rem; }
+    .lp-city-logo { width: 160px; }
+    .lp-subtitle { font-size: 0.65rem; letter-spacing: 0.12em; }
+    .lp-btn { padding: 0.7rem; font-size: 0.74rem; letter-spacing: 0.1em; }
+    .lp-keep-row { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+    .lp-bottom-row { flex-wrap: wrap; justify-content: center; text-align: center; }
+  }
+
+  @media (max-width: 380px) {
+    .lp-card { margin: 0.5rem; padding: 1.25rem 1rem; }
+    .lp-city-logo { width: 140px; }
   }
 `;
 

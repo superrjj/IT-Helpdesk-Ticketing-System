@@ -320,6 +320,9 @@ const Equipment: React.FC = () => {
         @keyframes eqSlideUp { from { transform: translateY(16px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
         .eq-filter-select { padding: 0.4rem 0.65rem; border-radius: 8; border: 1px solid #e2e8f0; background: #f8fafc; font-size: 12px; font-family: 'Poppins', sans-serif; color: #475569; outline: none; cursor: pointer; }
         .eq-filter-select:focus { border-color: #0a4c86; }
+        @media (max-width: 1024px) { .eq-stat-cards { grid-template-columns: repeat(3, 1fr) !important; } }
+        @media (max-width: 640px) { .eq-stat-cards { grid-template-columns: repeat(2, 1fr) !important; } .eq-header-row { flex-direction: column; align-items: flex-start !important; } }
+        @media (max-width: 480px) { .eq-stat-cards { grid-template-columns: 1fr !important; } }
       `}</style>
 
       <div className="eq-root" style={{ fontFamily: "'Poppins', sans-serif", color: "#0f172a" }}>
@@ -339,7 +342,7 @@ const Equipment: React.FC = () => {
         )}
 
         {/* ── Header ── */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
+        <div className="eq-header-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem", flexWrap: "wrap", gap: "0.75rem" }}>
           <div>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: "#0f172a", margin: 0, letterSpacing: 2 }}>Equipment</h2>
             <p style={{ fontSize: 12, color: "#64748b", margin: "3px 0 0" }}>Manage all IT equipment across departments.</p>
@@ -355,7 +358,7 @@ const Equipment: React.FC = () => {
         </div>
 
         {/* ── Summary stat cards ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "0.75rem", marginBottom: "1.2rem" }}>
+        <div className="eq-stat-cards" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "0.75rem", marginBottom: "1.2rem" }}>
           {[
             { label: "Total",       value: counts.total,     color: BRAND,     bg: "rgba(10,76,134,0.07)"  },
             { label: "Active",      value: counts.active,    color: "#15803d", bg: "rgba(22,163,74,0.08)"  },
@@ -365,7 +368,7 @@ const Equipment: React.FC = () => {
           ].map(c => (
             <div key={c.label} style={{
               background: "#fff", borderRadius: 14, padding: "0.85rem 1rem",
-              border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(15,23,42,0.05)",
+              border: "1px solid #e2e8f0",
             }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>{c.label}</div>
               <div style={{ fontSize: 24, fontWeight: 700, color: c.color }}>{c.value}</div>
@@ -376,7 +379,7 @@ const Equipment: React.FC = () => {
         {/* ── Table card ── */}
         <div style={{
           background: "#fff", borderRadius: 18, border: "1px solid #e2e8f0",
-          boxShadow: "0 4px 24px rgba(15,23,42,0.07)", overflow: "hidden",
+          overflow: "hidden",
         }}>
           {/* Toolbar */}
           <div style={{

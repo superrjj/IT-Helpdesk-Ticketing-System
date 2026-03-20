@@ -180,6 +180,20 @@ const raStyles = `
     margin-right: 6px;
     flex-shrink: 0;
   }
+
+  @media (max-width: 1024px) {
+    .ra-stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+    .ra-middle-row { grid-template-columns: 1fr !important; }
+    .ra-bar-label { width: 100px; font-size: 11px; }
+  }
+  @media (max-width: 640px) {
+    .ra-top-bar { flex-direction: column; align-items: flex-start !important; }
+    .ra-tabs-wrap { flex-wrap: wrap; }
+  }
+  @media (max-width: 480px) {
+    .ra-stat-grid { grid-template-columns: 1fr !important; }
+    .ra-bar-label { width: 80px; font-size: 10px; }
+  }
 `;
 
 // ── Static mock data (swap with Supabase queries) ─────────────────────────────
@@ -279,7 +293,7 @@ const ReportAnalytics: React.FC = () => {
       <div className="ra-root" style={{ display: "flex", flexDirection: "column", gap: "1.2rem", paddingRight: "1rem" }}>
 
         {/* ── Top bar ── */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
+        <div className="ra-top-bar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
           <div>
             <h1 style={{ fontSize: 18, fontWeight: 700, color: "#111827", margin: 0, letterSpacing: 2 }}>Reports & Analytics</h1>
             <p style={{ fontSize: 12, color: "#94a3b8", margin: "2px 0 0", fontWeight: 400 }}>
@@ -287,9 +301,9 @@ const ReportAnalytics: React.FC = () => {
             </p>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+          <div className="ra-tabs-wrap" style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
             {/* Period tabs */}
-            <div style={{ display: "flex", gap: "0.4rem" }}>
+            <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
               {tabs.map(t => (
                 <button
                   key={t}
@@ -310,7 +324,7 @@ const ReportAnalytics: React.FC = () => {
         </div>
 
         {/* ── Stat cards ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: "0.9rem" }}>
+        <div className="ra-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: "0.9rem" }}>
           {statCards.map(({ label, value, accent, icon: Icon, delta }) => (
             <div key={label} className="ra-stat-card">
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -328,7 +342,7 @@ const ReportAnalytics: React.FC = () => {
         </div>
 
         {/* ── Middle row: bar chart + donut ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "1.1rem" }}>
+        <div className="ra-middle-row" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "1.1rem" }}>
 
           {/* Tickets by Department */}
           <div className="ra-panel">

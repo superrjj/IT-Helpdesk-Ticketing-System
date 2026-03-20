@@ -249,6 +249,9 @@ const Departments: React.FC = () => {
         @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
         .modal-box { animation: slideUp 0.18s ease; }
         @keyframes slideUp { from { transform: translateY(16px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+        @media (max-width: 640px) {
+          .dept-header-row { flex-direction: column; align-items: flex-start !important; }
+        }
       `}</style>
 
       <div className="departments-root" style={{ fontFamily: "'Poppins', sans-serif", color: "#0f172a" }}>
@@ -269,7 +272,7 @@ const Departments: React.FC = () => {
         )}
 
         {/* ── Header row ── */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.2rem" }}>
+        <div className="dept-header-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.2rem", flexWrap: "wrap", gap: "0.75rem" }}>
           <div>
            <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, letterSpacing: 1, display: "flex", alignItems: "center", gap: 8 }}>
               <Building2 size={20} color={brandBlue} /> Departments

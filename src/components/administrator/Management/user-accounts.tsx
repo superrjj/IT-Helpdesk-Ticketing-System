@@ -330,6 +330,9 @@ export default function UserAccounts() {
           .ua-grid { grid-template-columns: 1fr; }
           .ua-span2 { grid-column: span 1; }
         }
+        @media (max-width: 640px) {
+          .ua-header-row { flex-direction: column; align-items: flex-start !important; }
+        }
       `}</style>
 
       {/* Toast */}
@@ -352,7 +355,7 @@ export default function UserAccounts() {
       )}
 
       {/* Page Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+      <div className="ua-header-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: "0.75rem" }}>
         <div>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, letterSpacing: 2 }}>User Accounts</h2>
           <div style={{ marginTop: 4, fontSize: 12, color: "#64748b" }}>Passwords are stored as bcrypt hashes.</div>

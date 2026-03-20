@@ -409,6 +409,8 @@ const Repairs: React.FC = () => {
         .rp-detail-row { display:flex; gap:8px; font-size:13px; padding:0.5rem 0; border-bottom:1px solid #f1f5f9; }
         .rp-detail-row:last-child { border-bottom:none; }
         .rp-detail-label { font-size:12px; font-weight:600; color:#64748b; min-width:130px; flex-shrink:0; }
+        @media (max-width: 1024px) { .rp-stat-cards { grid-template-columns: repeat(2, 1fr) !important; } }
+        @media (max-width: 480px) { .rp-stat-cards { grid-template-columns: 1fr !important; } .rp-header-row { flex-direction: column; align-items: flex-start !important; } }
       `}</style>
 
       <div className="rp-root" style={{ fontFamily: "'Poppins', sans-serif", color: "#0f172a" }}>
@@ -444,14 +446,14 @@ const Repairs: React.FC = () => {
         </div>
 
         {/* Stat cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.75rem", marginBottom: "1.2rem" }}>
+        <div className="rp-stat-cards" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.75rem", marginBottom: "1.2rem" }}>
           {[
             { label: "Total",       value: counts.total,      color: BRAND,     icon: <Wrench size={16} /> },
             { label: "Pending",     value: counts.pending,    color: "#475569", icon: <ClipboardList size={16} /> },
             { label: "In Progress", value: counts.inProgress, color: "#a16207", icon: <Loader size={16} /> },
             { label: "Completed",   value: counts.completed,  color: "#15803d", icon: <CheckCircle size={16} /> },
           ].map(c => (
-            <div key={c.label} style={{ background: "#fff", borderRadius: 14, padding: "0.9rem 1rem", border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(15,23,42,0.05)", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <div key={c.label} style={{ background: "#fff", borderRadius: 14, padding: "0.9rem 1rem", border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <div style={{ width: 36, height: 36, borderRadius: 10, background: `${c.color}15`, display: "flex", alignItems: "center", justifyContent: "center", color: c.color }}>
                   {c.icon}
@@ -464,7 +466,7 @@ const Repairs: React.FC = () => {
         </div>
 
         {/* Table card */}
-        <div style={{ background: "#fff", borderRadius: 18, border: "1px solid #e2e8f0", boxShadow: "0 4px 24px rgba(15,23,42,0.07)", overflow: "hidden" }}>
+        <div style={{ background: "#fff", borderRadius: 18, border: "1px solid #e2e8f0", overflow: "hidden" }}>
 
           {/* Toolbar */}
           <div style={{ padding: "0.9rem 1.2rem", borderBottom: "1px solid #f1f5f9", display: "flex", flexWrap: "wrap", gap: "0.65rem", alignItems: "center" }}>
