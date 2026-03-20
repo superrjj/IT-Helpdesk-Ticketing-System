@@ -229,31 +229,35 @@ const donutTotal = donutData.reduce((s, d) => s + d.value, 0);
 const DonutChart: React.FC = () => {
   const cx = 60, cy = 60, r = 48, strokeW = 14;
   const circ = 2 * Math.PI * r;
-  let offset = 0;
+
+  const segments = donutData.map((seg, i) => {
+    const dash = (seg.value / donutTotal) * circ;
+    const gap = circ - dash;
+    const offset = donutData
+      .slice(0, i)
+      .reduce((sum, s) => sum + (s.value / donutTotal) * circ + 1.5, 0);
+    return (
+      <circle
+        key={i}
+        cx={cx}
+        cy={cy}
+        r={r}
+        fill="none"
+        stroke={seg.color}
+        strokeWidth={strokeW}
+        strokeDasharray={`${dash} ${gap}`}
+        strokeDashoffset={-offset}
+        strokeLinecap="round"
+        transform="rotate(-90, 60, 60)"
+        style={{ transition: "stroke-dasharray 0.6s cubic-bezier(0.16,1,0.3,1)" }}
+      />
+    );
+  });
 
   return (
     <svg width={120} height={120} viewBox="0 0 120 120">
       <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f1f5f9" strokeWidth={strokeW} />
-      {donutData.map((seg, i) => {
-        const dash = (seg.value / donutTotal) * circ;
-        const gap  = circ - dash;
-        const el = (
-          <circle
-            key={i}
-            cx={cx} cy={cy} r={r}
-            fill="none"
-            stroke={seg.color}
-            strokeWidth={strokeW}
-            strokeDasharray={`${dash} ${gap}`}
-            strokeDashoffset={-offset}
-            strokeLinecap="round"
-            transform="rotate(-90, 60, 60)"
-            style={{ transition: "stroke-dasharray 0.6s cubic-bezier(0.16,1,0.3,1)" }}
-          />
-        );
-        offset += dash + 1.5;
-        return el;
-      })}
+      {segments}
       <text x={cx} y={cy - 6} textAnchor="middle" fontSize={18} fontWeight={700} fill="#111827" fontFamily="Poppins,sans-serif">
         {donutTotal}
       </text>
@@ -272,12 +276,12 @@ const ReportAnalytics: React.FC = () => {
   return (
     <>
       <style>{raStyles}</style>
-      <div className="ra-root" style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
+      <div className="ra-root" style={{ display: "flex", flexDirection: "column", gap: "1.2rem", paddingRight: "1rem" }}>
 
         {/* ── Top bar ── */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
           <div>
-            <h1 style={{ fontSize: 18, fontWeight: 700, color: "#111827", margin: 0 }}>Reports & Analytics</h1>
+            <h1 style={{ fontSize: 18, fontWeight: 700, color: "#111827", margin: 0, letterSpacing: 2 }}>Reports & Analytics</h1>
             <p style={{ fontSize: 12, color: "#94a3b8", margin: "2px 0 0", fontWeight: 400 }}>
               IT Helpdesk performance overview — Tarlac City Government
             </p>
