@@ -1,11 +1,5 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
-import {
-  notifyTicketAssignees,
-  diffNewAssignees,
-  insertActivityLog,
-  getSessionUserId,
-} from "../../../lib/audit-notifications";
 import {
   Plus, Pencil, Trash2, Eye, Search,
   ChevronUp, ChevronDown, X, AlertTriangle,
@@ -29,11 +23,9 @@ type ModalMode = "add" | "edit" | "view" | null;
 
 type FileReport = {
   id:             string;
-  ticket_number?: string | null;
   employee_name:  string;
   department_id:  string;
-  /** DB allows Hardware, Software, Internet; legacy rows may still read as Network / Internet until migrated. */
-  issue_type:     IssueType | "Network / Internet";
+  issue_type:     IssueType;
   title:          string;
   description:    string; 
   status:         Status;
@@ -71,17 +63,13 @@ const STATUSES:    Status[]    = ["Pending", "In Progress", "Resolved"];
 const ISSUE_TYPE_CONFIG: Record<IssueType, { icon: React.ReactNode; bg: string; activeBg: string; color: string; border: string }> = {
   "Hardware":           { icon: <Cpu size={14} />,     bg: "#f8fafc", activeBg: "rgba(10,76,134,0.08)",  color: "#0a4c86", border: "#0a4c86" },
   "Software":           { icon: <Monitor size={14} />, bg: "#f8fafc", activeBg: "rgba(124,58,237,0.08)", color: "#7c3aed", border: "#7c3aed" },
-  "Internet": { icon: <Wifi size={14} />, bg: "#f8fafc", activeBg: "rgba(6,182,212,0.08)", color: "#0891b2", border: "#0891b2" },
+  "Internet": { icon: <Wifi size={14} />,    bg: "#f8fafc", activeBg: "rgba(6,182,212,0.08)",  color: "#0891b2", border: "#0891b2" },
 };
 
-const ISSUE_TYPE_BADGE_CONFIG: Record<
-  IssueType | "Network / Internet",
-  { icon: React.ReactNode; bg: string; color: string }
-> = {
-  Hardware: { icon: <Cpu size={11} />, bg: "rgba(10,76,134,0.09)", color: "#0a4c86" },
-  Software: { icon: <Monitor size={11} />, bg: "rgba(124,58,237,0.09)", color: "#7c3aed" },
-  Internet: { icon: <Wifi size={11} />, bg: "rgba(6,182,212,0.09)", color: "#0891b2" },
-  "Network / Internet": { icon: <Wifi size={11} />, bg: "rgba(6,182,212,0.09)", color: "#0891b2" },
+const ISSUE_TYPE_BADGE_CONFIG: Record<IssueType, { icon: React.ReactNode; bg: string; color: string }> = {
+  "Hardware":           { icon: <Cpu size={11} />,     bg: "rgba(10,76,134,0.09)",  color: "#0a4c86" },
+  "Software":           { icon: <Monitor size={11} />, bg: "rgba(124,58,237,0.09)", color: "#7c3aed" },
+  "Internet": { icon: <Wifi size={11} />,    bg: "rgba(6,182,212,0.09)",  color: "#0891b2" },
 };
 
 const STATUS_CONFIG: Record<Status, { icon: React.ReactNode; bg: string; color: string }> = {
@@ -133,13 +121,11 @@ const fmtDate = (iso: string | null | undefined) =>
 
 // ── Badges ─────────────────────────────────────────────────────────────────────
 const IssueTypeBadge: React.FC<{ type: string }> = ({ type }) => {
-  const lookup = type === "Network / Internet" ? "Internet" : type;
-  const cfg =
-    ISSUE_TYPE_BADGE_CONFIG[lookup as IssueType | "Network / Internet"]
+  const cfg = ISSUE_TYPE_BADGE_CONFIG[type as IssueType]
     ?? { icon: <Cpu size={11} />, bg: "rgba(10,76,134,0.09)", color: "#0a4c86" };
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", background: cfg.bg, color: cfg.color }}>
-      {cfg.icon} {lookup}
+      {cfg.icon} {type}
     </span>
   );
 };
@@ -249,7 +235,7 @@ const SubmitTicket: React.FC = () => {
     return m;
   }, [itStaff]);
 
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
     setLoading(true);
     const [
       { data: reportData, error: reportError },
@@ -264,11 +250,14 @@ const SubmitTicket: React.FC = () => {
     setDepartments((depts ?? []) as Department[]);
     setItStaff((staff ?? []) as UserOption[]);
     if (reportError) { showToast(friendlyError(reportError.message), "error"); setReports([]); }
-    else setReports((reportData ?? []).map((r: any) => ({ ...r, assigned_to: Array.isArray(r.assigned_to) ? r.assigned_to : [] })));
+    else setReports((reportData ?? []).map((r: Record<string, unknown>) => ({ ...r, assigned_to: Array.isArray(r.assigned_to) ? r.assigned_to : [] })) as FileReport[]);
     setLoading(false);
-  };
+  }, [sortField, sortDir]);
 
-  useEffect(() => { fetchAll(); }, [sortField, sortDir]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchAll();
+  }, [fetchAll]);
 
   const reportsWithNames = useMemo(() =>
     reports.map(r => ({
@@ -290,10 +279,8 @@ const SubmitTicket: React.FC = () => {
   }, [reportsWithNames, search, filterIssueType, filterStatus]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  useEffect(() => setPage(1), [search, filterIssueType, filterStatus]);
-  useEffect(() => { if (page > totalPages) setPage(totalPages); }, [page, totalPages]);
+  const currentPage = Math.min(page, totalPages);
+  const paginated  = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -323,7 +310,7 @@ const SubmitTicket: React.FC = () => {
     setForm({
       employee_name:  r.employee_name,
       department_id:  r.department_id,
-      issue_type:     r.issue_type === "Network / Internet" ? "Internet" : (r.issue_type as IssueType),
+      issue_type:     r.issue_type,
       title:          r.title,
       description:    r.description,
       date_submitted: r.date_submitted.slice(0, 10),
@@ -351,54 +338,12 @@ const SubmitTicket: React.FC = () => {
     };
 
     if (modalMode === "add") {
-      const { data: row, error } = await supabase
-        .from("file_reports")
-        .insert({ ...payload, status: "Pending" })
-        .select("id, ticket_number")
-        .single();
-      if (error) {
-        setFormError(friendlyError(error.message));
-        setSubmitting(false);
-        return;
-      }
-      if (row?.id && form.assigned_to.length > 0) {
-        await notifyTicketAssignees(supabase, form.assigned_to, {
-          ticketId: row.id,
-          ticketTitle: form.title,
-          ticketNumber: row.ticket_number ?? null,
-        });
-      }
-      await insertActivityLog(supabase, {
-        actorUserId: getSessionUserId(),
-        action: "ticket_created",
-        entityType: "file_report",
-        entityId: row?.id ?? null,
-        meta: { title: form.title },
-      });
+      const { error } = await supabase.from("file_reports").insert({ ...payload, status: "Pending" });
+      if (error) { setFormError(friendlyError(error.message)); setSubmitting(false); return; }
       showToast("Ticket submitted successfully.", "success");
     } else if (modalMode === "edit" && selected) {
-      const prevAssigned = Array.isArray(selected.assigned_to) ? selected.assigned_to : [];
       const { error } = await supabase.from("file_reports").update(payload).eq("id", selected.id);
-      if (error) {
-        setFormError(friendlyError(error.message));
-        setSubmitting(false);
-        return;
-      }
-      const added = diffNewAssignees(prevAssigned, form.assigned_to);
-      if (added.length > 0) {
-        await notifyTicketAssignees(supabase, added, {
-          ticketId: selected.id,
-          ticketTitle: form.title,
-          ticketNumber: selected.ticket_number ?? null,
-        });
-      }
-      await insertActivityLog(supabase, {
-        actorUserId: getSessionUserId(),
-        action: "ticket_updated",
-        entityType: "file_report",
-        entityId: selected.id,
-        meta: { new_assignees: added.length },
-      });
+      if (error) { setFormError(friendlyError(error.message)); setSubmitting(false); return; }
       showToast("Ticket updated successfully.", "success");
     }
 
@@ -446,7 +391,7 @@ const SubmitTicket: React.FC = () => {
         .ticket-issue-pill:hover { border-color: #94a3b8; background: #f1f5f9; }
         .ticket-issue-pill.active-hw  { border-color: #0a4c86; background: rgba(10,76,134,0.08);  color: #0a4c86; }
         .ticket-issue-pill.active-sw  { border-color: #7c3aed; background: rgba(124,58,237,0.08); color: #7c3aed; }
-        .ticket-issue-pill.active-net { border-color: #0891b2; background: rgba(6,182,212,0.08);  color: #0891b2; }
+        .ticket-issue-pill.active-int { border-color: #0891b2; background: rgba(6,182,212,0.08);  color: #0891b2; }
         .ticket-detail-row { display: flex; gap: 8px; font-size: 13px; padding: 0.5rem 0; border-bottom: 1px solid #f1f5f9; }
         .ticket-detail-row:last-child { border-bottom: none; }
         .ticket-detail-label { font-size: 12px; font-weight: 600; color: #64748b; min-width: 140px; flex-shrink: 0; display: flex; align-items: center; gap: 6px; }
@@ -505,18 +450,18 @@ const SubmitTicket: React.FC = () => {
           <div style={{ padding: "0.9rem 1.2rem", borderBottom: "1px solid #f1f5f9", display: "flex", flexWrap: "wrap", gap: "0.65rem", alignItems: "center" }}>
             <div style={{ position: "relative", flex: "1 1 220px", maxWidth: 300 }}>
               <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tickets…" style={{ ...inputStyle, paddingLeft: 32 }} />
+              <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} placeholder="Search tickets…" style={{ ...inputStyle, paddingLeft: 32 }} />
             </div>
-            <select className="ticket-filter" value={filterIssueType} onChange={e => setFilterIssueType(e.target.value)}>
+            <select className="ticket-filter" value={filterIssueType} onChange={e => { setFilterIssueType(e.target.value); setPage(1); }}>
               <option value="All">All Issue Types</option>
               {ISSUE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
-            <select className="ticket-filter" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+            <select className="ticket-filter" value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1); }}>
               <option value="All">All Statuses</option>
               {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             <div style={{ marginLeft: "auto", fontSize: 12, color: "#64748b", whiteSpace: "nowrap" }}>
-              Page {page}/{totalPages}
+              Page {currentPage}/{totalPages}
             </div>
           </div>
 
@@ -588,21 +533,21 @@ const SubmitTicket: React.FC = () => {
           {/* Pagination */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem 1.2rem", borderTop: "1px solid #f1f5f9" }}>
             <span style={{ fontSize: 12, color: "#64748b" }}>
-              Showing {filtered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
+              Showing {filtered.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length}
             </span>
             <div style={{ display: "flex", gap: 6 }}>
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", cursor: page === 1 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: page === 1 ? "#cbd5e1" : "#475569" }}>
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+                style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", cursor: currentPage === 1 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: currentPage === 1 ? "#cbd5e1" : "#475569" }}>
                 <ChevronLeft size={14} />
               </button>
               {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
                 <button key={n} onClick={() => setPage(n)}
-                  style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid #e2e8f0", background: n === page ? BRAND : "#fff", color: n === page ? "#fff" : "#475569", fontWeight: n === page ? 600 : 400, cursor: "pointer", fontSize: 12, fontFamily: "'Poppins', sans-serif" }}>
+                  style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid #e2e8f0", background: n === currentPage ? BRAND : "#fff", color: n === currentPage ? "#fff" : "#475569", fontWeight: n === currentPage ? 600 : 400, cursor: "pointer", fontSize: 12, fontFamily: "'Poppins', sans-serif" }}>
                   {n}
                 </button>
               ))}
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", cursor: page === totalPages ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: page === totalPages ? "#cbd5e1" : "#475569" }}>
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+                style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", cursor: currentPage === totalPages ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: currentPage === totalPages ? "#cbd5e1" : "#475569" }}>
                 <ChevronRight size={14} />
               </button>
             </div>
@@ -629,7 +574,7 @@ const SubmitTicket: React.FC = () => {
                   <div className="ticket-issue-pills">
                     {ISSUE_TYPES.map(type => {
                       const active = form.issue_type === type;
-                      const cls = type === "Hardware" ? "active-hw" : type === "Software" ? "active-sw" : "active-net";
+                      const cls = type === "Hardware" ? "active-hw" : type === "Software" ? "active-sw" : "active-int";
                       return (
                         <button key={type} type="button" className={`ticket-issue-pill${active ? ` ${cls}` : ""}`}
                           onClick={() => { setForm(f => ({ ...f, issue_type: type })); setFormError(""); }}>
