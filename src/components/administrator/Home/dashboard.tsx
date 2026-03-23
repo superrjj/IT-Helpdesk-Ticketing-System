@@ -347,7 +347,7 @@ const Dashboard: React.FC = () => {
               onMenuClick={openSidebar}
               onNotificationNavigate={
                 isTechnician
-                  ? (entityType, entityId) => {
+                  ? (entityType: string, entityId: string | null) => {
                       if (entityType === "file_report") {
                         if (entityId) localStorage.setItem("focus_ticket_id", entityId);
                         setActiveLabel("My Tickets");
