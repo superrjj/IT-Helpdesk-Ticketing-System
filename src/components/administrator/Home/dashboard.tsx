@@ -15,8 +15,8 @@ import MyTickets from "../../technician/my-tickets";
 import ActivityLogPanel from "../../technician/activity-log-panel";
 import {
   Ticket, Clock, CheckCircle, CircleArrowDown,
-  CircleArrowUp, TrendingUp, Activity, Zap,
-  BarChart3, AlertTriangle, RefreshCw,
+  CircleArrowUp, TrendingUp, Activity,
+  BarChart3, AlertTriangle, RefreshCw, ArrowUpRight,
 } from "lucide-react";
 
 const supabase = createClient(
@@ -24,7 +24,6 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY as string
 );
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 function useCountUp(target: number, duration = 900) {
@@ -45,7 +44,6 @@ function useCountUp(target: number, duration = 900) {
   return val;
 }
 
-// ── Types ─────────────────────────────────────────────────────────────────────
 type IssueCount = { type: string; count: number };
 type DeptRow    = { name: string; tickets: number; repairs: number };
 type DashData = {
@@ -53,8 +51,6 @@ type DashData = {
   pendingTickets:    number;
   resolvedTickets:   number;
   inProgressTickets: number;
-  completedRepairs:  number;
-  pendingRepairs:    number;
   incomingUnits:     number;
   outgoingUnits:     number;
   issueBreakdown:    IssueCount[];
@@ -66,34 +62,47 @@ type DashData = {
 const KPI: React.FC<{
   label: string; value: number; sub?: string;
   icon: React.ReactNode; accent: string; delay?: number;
-}> = ({ label, value, sub, icon, accent, delay = 0 }) => {
+  onClick?: () => void;
+}> = ({ label, value, sub, icon, accent, delay = 0, onClick }) => {
   const [visible, setVisible] = useState(false);
+  const [hovered, setHovered] = useState(false);
   useEffect(() => { const t = setTimeout(() => setVisible(true), delay); return () => clearTimeout(t); }, [delay]);
   const displayed = useCountUp(visible ? value : 0);
 
   return (
-    <div style={{
-      background: "#fff",
-      borderRadius: 20,
-      padding: "1.3rem 1.4rem",
-      border: "1px solid #e8edf5",
-      display: "flex",
-      flexDirection: "column",
-      gap: "0.7rem",
-      position: "relative",
-      overflow: "hidden",
-      opacity: visible ? 1 : 0,
-      transform: visible ? "translateY(0)" : "translateY(14px)",
-      transition: `opacity 0.45s ease ${delay}ms, transform 0.45s ease ${delay}ms`,
-      boxShadow: "0 2px 12px rgba(10,76,134,0.05)",
-    }}>
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: hovered ? "#fafbff" : "#fff",
+        borderRadius: 20,
+        padding: "1.3rem 1.4rem",
+        border: `1px solid ${hovered ? accent + "40" : "#e8edf5"}`,
+        display: "flex",
+        flexDirection: "column",
+        gap: "0.7rem",
+        position: "relative",
+        overflow: "hidden",
+        opacity: visible ? 1 : 0,
+        transform: visible ? "translateY(0)" : "translateY(14px)",
+        transition: `opacity 0.45s ease ${delay}ms, transform 0.45s ease ${delay}ms, border-color 0.2s, background 0.2s, box-shadow 0.2s`,
+        boxShadow: hovered ? `0 4px 20px ${accent}18` : "0 2px 12px rgba(10,76,134,0.05)",
+        cursor: onClick ? "pointer" : "default",
+      }}
+    >
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: accent, borderRadius: "20px 20px 0 0" }} />
-      <div style={{ position: "absolute", top: -20, right: -20, width: 80, height: 80, borderRadius: "50%", background: accent, opacity: 0.06 }} />
-      <div style={{ display: "flex", alignItems: "center" }}>
+      <div style={{ position: "absolute", top: -20, right: -20, width: 80, height: 80, borderRadius: "50%", background: accent, opacity: hovered ? 0.1 : 0.06, transition: "opacity 0.2s" }} />
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ width: 38, height: 38, borderRadius: 12, background: `${accent}15`, display: "flex", alignItems: "center", justifyContent: "center", color: accent }}>
           {icon}
         </div>
+        {onClick && (
+          <ArrowUpRight size={14} color={hovered ? accent : "#cbd5e1"} style={{ transition: "color 0.2s", transform: hovered ? "translate(2px, -2px)" : "none", transitionProperty: "color, transform" }} />
+        )}
       </div>
+
       <div>
         <div style={{ fontSize: 32, fontWeight: 800, color: "#0f172a", lineHeight: 1, letterSpacing: "-1px", fontFamily: "'DM Sans', sans-serif" }}>
           {displayed}
@@ -170,7 +179,7 @@ const DonutChart: React.FC<{ data: { label: string; value: number; color: string
   );
 };
 
-// ── Horizontal Bar (no medals) ────────────────────────────────────────────────
+// ── Horizontal Bar ────────────────────────────────────────────────────────────
 const HorizBar: React.FC<{ label: string; value: number; max: number; color: string; rank: number }> = ({ label, value, max, color, rank }) => {
   const [width, setWidth] = useState(0);
   useEffect(() => {
@@ -191,7 +200,7 @@ const HorizBar: React.FC<{ label: string; value: number; max: number; color: str
 };
 
 // ── Dashboard Home ────────────────────────────────────────────────────────────
-const DashboardHome: React.FC = () => {
+const DashboardHome: React.FC<{ onNavigate: (label: string) => void }> = ({ onNavigate }) => {
   const [data, setData]           = useState<DashData | null>(null);
   const [loading, setLoading]     = useState(true);
   const [refreshed, setRefreshed] = useState(false);
@@ -201,13 +210,11 @@ const DashboardHome: React.FC = () => {
     const today = new Date();
     const [
       { data: tickets },
-      { data: repairs },
       { data: incoming },
       { data: outgoing },
       { data: depts },
     ] = await Promise.all([
       supabase.from("file_reports").select("status, issue_type, date_submitted, department_id"),
-      supabase.from("repairs").select("status"),
       supabase.from("incoming_units").select("id"),
       supabase.from("outgoing_units").select("id"),
       supabase.from("departments").select("id, name").order("name"),
@@ -239,8 +246,6 @@ const DashboardHome: React.FC = () => {
       pendingTickets:    (tickets ?? []).filter(t => t.status === "Pending").length,
       resolvedTickets:   (tickets ?? []).filter(t => t.status === "Resolved").length,
       inProgressTickets: (tickets ?? []).filter(t => t.status === "In Progress").length,
-      completedRepairs:  (repairs ?? []).filter(r => r.status === "completed").length,
-      pendingRepairs:    (repairs ?? []).filter(r => r.status !== "completed").length,
       incomingUnits:     (incoming ?? []).length,
       outgoingUnits:     (outgoing ?? []).length,
       issueBreakdown,
@@ -310,20 +315,14 @@ const DashboardHome: React.FC = () => {
           </button>
         </div>
 
-        {/* KPI Row 1 */}
-        <div className="dash-kpi-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.85rem", marginBottom: "1rem" }}>
-          <KPI label="Total Tickets"   value={data.totalTickets}   icon={<Ticket size={17} />}          accent="#0a4c86" delay={0}   sub="All time submissions" />
-          <KPI label="Pending Tickets" value={data.pendingTickets} icon={<Clock size={17} />}           accent="#f59e0b" delay={80}  sub="Awaiting action" />
-          <KPI label="Incoming Units"  value={data.incomingUnits}  icon={<CircleArrowDown size={17} />} accent="#8b5cf6" delay={160} sub="Logged for repair" />
-          <KPI label="Outgoing Units"  value={data.outgoingUnits}  icon={<CircleArrowUp size={17} />}   accent="#10b981" delay={240} sub="Returned to users" />
-        </div>
-
-        {/* KPI Row 2 */}
-        <div className="dash-kpi-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.85rem", marginBottom: "1.2rem" }}>
-          <KPI label="Completed Repairs" value={data.completedRepairs}  icon={<CheckCircle size={17} />} accent="#10b981" delay={100} sub="Repairs finished" />
-          <KPI label="Active Repairs"    value={data.pendingRepairs}    icon={<Activity size={17} />}    accent="#ef4444" delay={180} sub="Repairs in progress" />
-          <KPI label="Resolved Tickets"  value={data.resolvedTickets}   icon={<Zap size={17} />}         accent="#0891b2" delay={260} sub="Issues closed" />
-          <KPI label="In Progress"       value={data.inProgressTickets} icon={<TrendingUp size={17} />}  accent="#f59e0b" delay={320} sub="Being handled" />
+        {/* KPI Grid — 6 cards, 3 columns, all clickable */}
+        <div className="dash-kpi-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.85rem", marginBottom: "1.2rem" }}>
+          <KPI label="Total Tickets"   value={data.totalTickets}      icon={<Ticket size={17} />}          accent="#0a4c86" delay={0}   sub="All time submissions" onClick={() => onNavigate("Submit Ticket")} />
+          <KPI label="Pending"         value={data.pendingTickets}    icon={<Clock size={17} />}           accent="#f59e0b" delay={60}  sub="Awaiting action"      onClick={() => onNavigate("Submit Ticket")} />
+          <KPI label="In Progress"     value={data.inProgressTickets} icon={<Activity size={17} />}        accent="#3b82f6" delay={120} sub="Being handled"        onClick={() => onNavigate("Submit Ticket")} />
+          <KPI label="Resolved"        value={data.resolvedTickets}   icon={<CheckCircle size={17} />}     accent="#10b981" delay={180} sub="Issues closed"        onClick={() => onNavigate("Submit Ticket")} />
+          <KPI label="Incoming Units"  value={data.incomingUnits}     icon={<CircleArrowDown size={17} />} accent="#8b5cf6" delay={240} sub="Logged for repair"    onClick={() => onNavigate("Incoming Units")} />
+          <KPI label="Outgoing Units"  value={data.outgoingUnits}     icon={<CircleArrowUp size={17} />}   accent="#10b981" delay={300} sub="Returned to users"    onClick={() => onNavigate("Outgoing Units")} />
         </div>
 
         {/* Mid row */}
@@ -446,15 +445,15 @@ const Dashboard: React.FC = () => {
   }, [navigate]);
 
   const PAGE_MAP: Record<string, React.ReactNode> = {
-    "Home":                isTechnician ? <TechnicianDashboardHome /> : <DashboardHome />,
+    "Home":                isTechnician ? <TechnicianDashboardHome /> : <DashboardHome onNavigate={setActiveLabel} />,
     "Submit Ticket":       <FileReports />,
     "Repair History":      <Repairs />,
     "My Tickets":          <MyTickets />,
     "Incoming Units":      <IncomingUnits readOnly={isTechnician} />,
     "Outgoing Units":      <OutgoingUnits readOnly={isTechnician} />,
     "Departments":         <Departments />,
-    "User Accounts":       isAdmin ? <UserAccounts />    : <DashboardHome />,
-    "Reports & Analytics": isAdmin ? <ReportAnalytics /> : <DashboardHome />,
+    "User Accounts":       isAdmin ? <UserAccounts />    : <DashboardHome onNavigate={setActiveLabel} />,
+    "Reports & Analytics": isAdmin ? <ReportAnalytics /> : <DashboardHome onNavigate={setActiveLabel} />,
     "Activity Log":        <ActivityLogPanel isAdmin={isAdmin} />,
   };
 
@@ -489,7 +488,6 @@ const Dashboard: React.FC = () => {
           isMobileOpen={sidebarOpen}
           onMobileClose={closeSidebar}
         />
-
         <div className="adm-main-wrap" style={{
           flex: 1,
           minHeight: 0,
@@ -517,7 +515,7 @@ const Dashboard: React.FC = () => {
             />
           </div>
           <div className="adm-scroll-area" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingRight: "0.5rem" }}>
-            {PAGE_MAP[activeLabel] ?? <DashboardHome />}
+            {PAGE_MAP[activeLabel] ?? <DashboardHome onNavigate={setActiveLabel} />}
           </div>
         </div>
       </div>
