@@ -12,8 +12,6 @@ import OutgoingUnits from "../Units/outgoingUnits";
 import Repairs from "../repairs/repairs";
 import TechnicianDashboardHome from "../../technician/technician-dashboard-home";
 import MyTickets from "../../technician/my-tickets";
-import MyRepairs from "../../technician/my-repairs";
-import RepairHistoryTechnician from "../../technician/repair-history-technician";
 import ActivityLogPanel from "../../technician/activity-log-panel";
 
 // ── Supabase client ────────────────────────────────────────────────────────────
@@ -281,9 +279,8 @@ const Dashboard: React.FC = () => {
   const PAGE_MAP: Record<string, React.ReactNode> = {
     "Home": isTechnician ? <TechnicianDashboardHome /> : <DashboardHome />,
     "Submit Ticket": <FileReports />,
-    "Repair History": isTechnician ? <RepairHistoryTechnician /> : <Repairs />,
+    "Repair History": <Repairs />,
     "My Tickets": <MyTickets />,
-    "My Repairs": <MyRepairs />,
     "Incoming Units": <IncomingUnits readOnly={isTechnician} />,
     "Outgoing Units": <OutgoingUnits readOnly={isTechnician} />,
     "Departments": <Departments />,
@@ -351,9 +348,6 @@ const Dashboard: React.FC = () => {
                       if (entityType === "file_report") {
                         if (entityId) localStorage.setItem("focus_ticket_id", entityId);
                         setActiveLabel("My Tickets");
-                      } else if (entityType === "repair") {
-                        if (entityId) localStorage.setItem("focus_repair_id", entityId);
-                        setActiveLabel("My Repairs");
                       }
                     }
                   : undefined

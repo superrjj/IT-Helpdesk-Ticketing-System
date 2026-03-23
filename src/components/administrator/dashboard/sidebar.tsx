@@ -9,7 +9,6 @@ import {
   CircleArrowUp,
   TicketIcon,
   X,
-  Wrench,
   ScrollText,
 } from "lucide-react";
 
@@ -67,8 +66,6 @@ const technicianMenuSections: MenuSection[] = [
     heading: "Tickets & Repairs",
     items: [
       { label: "My Tickets", icon: TicketIcon },
-      { label: "My Repairs", icon: Wrench },
-      { label: "Repair History", icon: ClipboardList },
     ],
   },
   {
