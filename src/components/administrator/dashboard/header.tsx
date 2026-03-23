@@ -266,16 +266,41 @@ const Header: React.FC<HeaderProps> = ({ currentUserName, userRole, onMenuClick,
     else if (count !== null) setUnreadNotifications(count);
   }, []);
 
+  // ── Realtime + polling + custom event ────────────────────────────────────
   useEffect(() => {
     refreshUnread();
+
     const onEvt = () => refreshUnread();
     window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, onEvt);
-    const t = setInterval(refreshUnread, 60000);
+
+    // Fallback poll every 30s (reduced from 60s for faster badge updates)
+    const t = setInterval(refreshUnread, 30000);
+
+    // Supabase Realtime — fires instantly when a new notification is inserted
+    const uid = localStorage.getItem("session_user_id");
+    const channel = supabase
+      .channel("notif-badge-header")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "app_notifications",
+          filter: `user_id=eq.${uid}`,
+        },
+        () => {
+          refreshUnread();
+        }
+      )
+      .subscribe();
+
     return () => {
       window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, onEvt);
       clearInterval(t);
+      supabase.removeChannel(channel);
     };
   }, [refreshUnread]);
+  // ─────────────────────────────────────────────────────────────────────────
 
   const fetchNotifications = useCallback(async () => {
     const uid = localStorage.getItem("session_user_id");
