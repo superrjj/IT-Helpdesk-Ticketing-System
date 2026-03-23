@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { createClient } from "@supabase/supabase-js";
 import {
+  notifyRepairAssignees,
+  diffNewAssignees,
+  insertActivityLog,
+  getSessionUserId,
+} from "../../../lib/audit-notifications";
+import {
   Plus, Pencil, Trash2, Eye, Search,
   ChevronUp, ChevronDown, X, AlertTriangle,
   ChevronLeft, ChevronRight, Wrench,
@@ -252,7 +258,12 @@ const Repairs: React.FC = () => {
   const fetchDropdowns = async () => {
     const [{ data: tix }, { data: ua }] = await Promise.all([
       supabase.from("file_reports").select("id, ticket_number, title").order("created_at", { ascending: false }),
-      supabase.from("user_accounts").select("id, full_name, role").eq("is_active", true).eq("role", "IT Staff").order("full_name"),
+      supabase
+        .from("user_accounts")
+        .select("id, full_name, role")
+        .eq("is_active", true)
+        .in("role", ["IT Staff", "IT Technician"])
+        .order("full_name"),
     ]);
     setTickets((tix ?? []) as TicketOption[]);
     setUsers((ua ?? []) as UserOption[]);
@@ -359,12 +370,53 @@ const Repairs: React.FC = () => {
     };
 
     if (modalMode === "add") {
-      const { error } = await supabase.from("repairs").insert(payload);
-      if (error) { setFormError(friendlyError(error.message)); setSubmitting(false); return; }
+      const { data: row, error } = await supabase.from("repairs").insert(payload).select("id").single();
+      if (error) {
+        setFormError(friendlyError(error.message));
+        setSubmitting(false);
+        return;
+      }
+      if (row?.id && form.assigned_to.length > 0) {
+        const summary = [tickets.find(t => t.id === form.file_report_id)?.ticket_number, form.problem || payload.problem]
+          .filter(Boolean)
+          .join(" — ")
+          .slice(0, 200);
+        await notifyRepairAssignees(supabase, form.assigned_to, {
+          repairId: row.id,
+          summary: summary || "New repair job",
+        });
+      }
+      await insertActivityLog(supabase, {
+        actorUserId: getSessionUserId(),
+        action: "repair_created",
+        entityType: "repair",
+        entityId: row?.id ?? null,
+        meta: { status: form.status },
+      });
       showToast("Repair job created successfully.", "success");
     } else if (modalMode === "edit" && selected) {
+      const prevAssigned = Array.isArray(selected.assigned_to) ? selected.assigned_to : [];
       const { error } = await supabase.from("repairs").update(payload).eq("id", selected.id);
-      if (error) { setFormError(friendlyError(error.message)); setSubmitting(false); return; }
+      if (error) {
+        setFormError(friendlyError(error.message));
+        setSubmitting(false);
+        return;
+      }
+      const added = diffNewAssignees(prevAssigned, form.assigned_to);
+      if (added.length > 0) {
+        const summary = [selected.ticket_number, selected.problem].filter(Boolean).join(" — ").slice(0, 200);
+        await notifyRepairAssignees(supabase, added, {
+          repairId: selected.id,
+          summary: summary || "Repair job reassigned",
+        });
+      }
+      await insertActivityLog(supabase, {
+        actorUserId: getSessionUserId(),
+        action: "repair_updated",
+        entityType: "repair",
+        entityId: selected.id,
+        meta: { status: form.status },
+      });
       showToast("Repair job updated successfully.", "success");
     }
 

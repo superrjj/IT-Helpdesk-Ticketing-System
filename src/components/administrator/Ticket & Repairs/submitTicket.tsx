@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { createClient } from "@supabase/supabase-js";
 import {
+  notifyTicketAssignees,
+  diffNewAssignees,
+  insertActivityLog,
+  getSessionUserId,
+} from "../../../lib/audit-notifications";
+import {
   Plus, Pencil, Trash2, Eye, Search,
   ChevronUp, ChevronDown, X, AlertTriangle,
   ChevronLeft, ChevronRight, FileText,
@@ -23,6 +29,7 @@ type ModalMode = "add" | "edit" | "view" | null;
 
 type FileReport = {
   id:             string;
+  ticket_number?: string | null;
   employee_name:  string;
   department_id:  string;
   /** DB allows Hardware, Software, Internet; legacy rows may still read as Network / Internet until migrated. */
@@ -344,12 +351,54 @@ const SubmitTicket: React.FC = () => {
     };
 
     if (modalMode === "add") {
-      const { error } = await supabase.from("file_reports").insert({ ...payload, status: "Pending" });
-      if (error) { setFormError(friendlyError(error.message)); setSubmitting(false); return; }
+      const { data: row, error } = await supabase
+        .from("file_reports")
+        .insert({ ...payload, status: "Pending" })
+        .select("id, ticket_number")
+        .single();
+      if (error) {
+        setFormError(friendlyError(error.message));
+        setSubmitting(false);
+        return;
+      }
+      if (row?.id && form.assigned_to.length > 0) {
+        await notifyTicketAssignees(supabase, form.assigned_to, {
+          ticketId: row.id,
+          ticketTitle: form.title,
+          ticketNumber: row.ticket_number ?? null,
+        });
+      }
+      await insertActivityLog(supabase, {
+        actorUserId: getSessionUserId(),
+        action: "ticket_created",
+        entityType: "file_report",
+        entityId: row?.id ?? null,
+        meta: { title: form.title },
+      });
       showToast("Ticket submitted successfully.", "success");
     } else if (modalMode === "edit" && selected) {
+      const prevAssigned = Array.isArray(selected.assigned_to) ? selected.assigned_to : [];
       const { error } = await supabase.from("file_reports").update(payload).eq("id", selected.id);
-      if (error) { setFormError(friendlyError(error.message)); setSubmitting(false); return; }
+      if (error) {
+        setFormError(friendlyError(error.message));
+        setSubmitting(false);
+        return;
+      }
+      const added = diffNewAssignees(prevAssigned, form.assigned_to);
+      if (added.length > 0) {
+        await notifyTicketAssignees(supabase, added, {
+          ticketId: selected.id,
+          ticketTitle: form.title,
+          ticketNumber: selected.ticket_number ?? null,
+        });
+      }
+      await insertActivityLog(supabase, {
+        actorUserId: getSessionUserId(),
+        action: "ticket_updated",
+        entityType: "file_report",
+        entityId: selected.id,
+        meta: { new_assignees: added.length },
+      });
       showToast("Ticket updated successfully.", "success");
     }
 

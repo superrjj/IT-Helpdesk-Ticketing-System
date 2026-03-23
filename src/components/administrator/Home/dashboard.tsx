@@ -9,6 +9,12 @@ import ReportAnalytics from "../Reports/report-analytics";
 import UserAccounts from "../Management/user-accounts";
 import IncomingUnits from "../Units/incomingUnits";
 import OutgoingUnits from "../Units/outgoingUnits";
+import Repairs from "../repairs/repairs";
+import TechnicianDashboardHome from "../../technician/technician-dashboard-home";
+import MyTickets from "../../technician/my-tickets";
+import MyRepairs from "../../technician/my-repairs";
+import RepairHistoryTechnician from "../../technician/repair-history-technician";
+import ActivityLogPanel from "../../technician/activity-log-panel";
 
 // ── Supabase client ────────────────────────────────────────────────────────────
 const supabase = createClient(
@@ -50,12 +56,6 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, accent = "blue" }) =>
     </div>
   );
 };
-
-const ComingSoon: React.FC<{ label: string }> = ({ label }) => (
-  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1, color: "#94a3b8", fontSize: 14 }}>
-    <span><strong>{label}</strong> — this page is under construction.</span>
-  </div>
-);
 
 type DepartmentStats = {
   name: string;
@@ -270,6 +270,7 @@ const Dashboard: React.FC = () => {
   const currentUserName = localStorage.getItem("session_user_full_name") || "User";
   const userRole        = localStorage.getItem("session_user_role") || "";
   const isAdmin         = userRole === "Administrator";
+  const isTechnician    = userRole === "IT Technician";
 
   useEffect(() => {
     const token = localStorage.getItem("session_token");
@@ -278,14 +279,17 @@ const Dashboard: React.FC = () => {
 
   // ── Page map: label → component ──────────────────────────────────────────
   const PAGE_MAP: Record<string, React.ReactNode> = {
-    "Home":                 <DashboardHome />,
-    "Submit Ticket":        <FileReports />,
-    "Repair History":       <ComingSoon label="Repair History" />,
-    "Incoming Units":       <IncomingUnits />,
-    "Outgoing Units":       <OutgoingUnits />,
-    "Departments":          <Departments />,
-    "User Accounts":        isAdmin ? <UserAccounts /> : <DashboardHome />,
-    "Reports & Analytics":  isAdmin ? <ReportAnalytics /> : <DashboardHome />,
+    "Home": isTechnician ? <TechnicianDashboardHome /> : <DashboardHome />,
+    "Submit Ticket": <FileReports />,
+    "Repair History": isTechnician ? <RepairHistoryTechnician /> : <Repairs />,
+    "My Tickets": <MyTickets />,
+    "My Repairs": <MyRepairs />,
+    "Incoming Units": <IncomingUnits readOnly={isTechnician} />,
+    "Outgoing Units": <OutgoingUnits readOnly={isTechnician} />,
+    "Departments": <Departments />,
+    "User Accounts": isAdmin ? <UserAccounts /> : <DashboardHome />,
+    "Reports & Analytics": isAdmin ? <ReportAnalytics /> : <DashboardHome />,
+    "Activity Log": <ActivityLogPanel isAdmin={isAdmin} />,
   };
 
   return (
@@ -341,6 +345,19 @@ const Dashboard: React.FC = () => {
               currentUserName={currentUserName}
               userRole={userRole}
               onMenuClick={openSidebar}
+              onNotificationNavigate={
+                isTechnician
+                  ? (entityType, entityId) => {
+                      if (entityType === "file_report") {
+                        if (entityId) localStorage.setItem("focus_ticket_id", entityId);
+                        setActiveLabel("My Tickets");
+                      } else if (entityType === "repair") {
+                        if (entityId) localStorage.setItem("focus_repair_id", entityId);
+                        setActiveLabel("My Repairs");
+                      }
+                    }
+                  : undefined
+              }
             />
           </div>
           <div className="adm-scroll-area" style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>

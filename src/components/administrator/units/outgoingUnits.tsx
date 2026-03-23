@@ -179,7 +179,7 @@ const StaffSinglePicker: React.FC<{
   </div>
 );
 
-const OutgoingUnits: React.FC = () => {
+const OutgoingUnits: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
   const [rows, setRows] = useState<OutgoingUnitRow[]>([]);
   const [itStaff, setItStaff] = useState<UserOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -451,28 +451,32 @@ const OutgoingUnits: React.FC = () => {
               <CircleArrowUp size={20} color={BRAND} /> Outgoing Units
             </h2>
             <p style={{ fontSize: 12, color: "#64748b", margin: "3px 0 0" }}>
-              Log equipment released from the IT office after repair or service.
+              {readOnly
+                ? "View-only list of units released from IT (you cannot add or change records)."
+                : "Log equipment released from the IT office after repair or service."}
             </p>
           </div>
-          <button
-            onClick={openAdd}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.4rem",
-              padding: "0.5rem 1rem",
-              borderRadius: 10,
-              border: "none",
-              background: BRAND,
-              color: "#fff",
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: "pointer",
-              fontFamily: "'Poppins', sans-serif",
-            }}
-          >
-            <Plus size={15} /> Log outgoing unit
-          </button>
+          {!readOnly && (
+            <button
+              onClick={openAdd}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.4rem",
+                padding: "0.5rem 1rem",
+                borderRadius: 10,
+                border: "none",
+                background: BRAND,
+                color: "#fff",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                fontFamily: "'Poppins', sans-serif",
+              }}
+            >
+              <Plus size={15} /> Log outgoing unit
+            </button>
+          )}
         </div>
 
         <div
@@ -673,16 +677,20 @@ const OutgoingUnits: React.FC = () => {
                       </td>
                       <td style={{ padding: "0.75rem 1rem" }}>
                         <div style={{ display: "flex", gap: 6 }}>
-                          {[
-                            { icon: <Eye size={14} />, title: "View", fn: () => openView(r), color: BRAND },
-                            { icon: <Pencil size={14} />, title: "Edit", fn: () => openEdit(r), color: BRAND },
-                            {
-                              icon: <Trash2 size={14} />,
-                              title: "Delete",
-                              fn: () => setDeleteTarget(r),
-                              color: "#dc2626",
-                            },
-                          ].map((btn, i) => (
+                          {(
+                            readOnly
+                              ? [{ icon: <Eye size={14} />, title: "View", fn: () => openView(r), color: BRAND }]
+                              : [
+                                  { icon: <Eye size={14} />, title: "View", fn: () => openView(r), color: BRAND },
+                                  { icon: <Pencil size={14} />, title: "Edit", fn: () => openEdit(r), color: BRAND },
+                                  {
+                                    icon: <Trash2 size={14} />,
+                                    title: "Delete",
+                                    fn: () => setDeleteTarget(r),
+                                    color: "#dc2626",
+                                  },
+                                ]
+                          ).map((btn, i) => (
                             <button
                               key={i}
                               title={btn.title}
@@ -788,7 +796,7 @@ const OutgoingUnits: React.FC = () => {
           </div>
         </div>
 
-        {(modalMode === "add" || modalMode === "edit") && (
+        {!readOnly && (modalMode === "add" || modalMode === "edit") && (
           <div
             className="modal-overlay-ou"
             style={{
@@ -1112,28 +1120,30 @@ const OutgoingUnits: React.FC = () => {
               </div>
 
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: "1.4rem" }}>
-                <button
-                  onClick={() => {
-                    closeModal();
-                    openEdit(selected);
-                  }}
-                  style={{
-                    padding: "0.5rem 1rem",
-                    borderRadius: 8,
-                    border: `1.5px solid ${BRAND}`,
-                    background: "#fff",
-                    color: BRAND,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    fontFamily: "'Poppins', sans-serif",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                  }}
-                >
-                  <Pencil size={13} /> Edit
-                </button>
+                {!readOnly && (
+                  <button
+                    onClick={() => {
+                      closeModal();
+                      openEdit(selected);
+                    }}
+                    style={{
+                      padding: "0.5rem 1rem",
+                      borderRadius: 8,
+                      border: `1.5px solid ${BRAND}`,
+                      background: "#fff",
+                      color: BRAND,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      fontFamily: "'Poppins', sans-serif",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <Pencil size={13} /> Edit
+                  </button>
+                )}
                 <button
                   onClick={closeModal}
                   style={{
@@ -1155,7 +1165,7 @@ const OutgoingUnits: React.FC = () => {
           </div>
         )}
 
-        {deleteTarget && (
+        {!readOnly && deleteTarget && (
           <div
             className="modal-overlay-ou"
             style={{

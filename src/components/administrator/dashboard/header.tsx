@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogOut, Menu } from "lucide-react";
+import { createClient } from "@supabase/supabase-js";
+import { LogOut, Menu, Bell } from "lucide-react";
+import { NOTIFICATIONS_CHANGED_EVENT } from "../../../lib/audit-notifications";
 
 const brandBlue = "#0a4c86";
 
@@ -179,13 +181,161 @@ type HeaderProps = {
   currentUserName: string;
   userRole: string;
   onMenuClick?: () => void;
+  onNotificationNavigate?: (entityType: string, entityId: string | null) => void;
 };
 
-const Header: React.FC<HeaderProps> = ({ currentUserName, userRole, onMenuClick }) => {
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL as string,
+  import.meta.env.VITE_SUPABASE_ANON_KEY as string
+);
+
+type NotificationRow = {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  entity_type: string | null;
+  entity_id: string | null;
+  read_at: string | null;
+  created_at: string;
+};
+
+const Header: React.FC<HeaderProps> = ({ currentUserName, userRole, onMenuClick, onNotificationNavigate }) => {
   const navigate = useNavigate();
   const [now, setNow]               = useState(new Date());
   const [showConfirm, setShowConfirm] = useState(false);
   const [loggingOut, setLoggingOut]   = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [showNotifPanel, setShowNotifPanel] = useState(false);
+  const [notifLoading, setNotifLoading] = useState(false);
+  const [notifs, setNotifs] = useState<NotificationRow[]>([]);
+  const notifPanelRef = useRef<HTMLDivElement | null>(null);
+  const notifBtnRef = useRef<HTMLButtonElement | null>(null);
+  const prevUnreadRef = useRef<number>(0);
+
+  const playNotificationSound = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const AudioCtx = (window.AudioContext || (window as any).webkitAudioContext) as
+      | (new () => AudioContext)
+      | undefined;
+    if (!AudioCtx) return;
+    try {
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = "sine";
+      osc.frequency.value = 880;
+      gain.gain.value = 0.0001;
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      const t = ctx.currentTime;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.18, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+
+      osc.start(t);
+      osc.stop(t + 0.2);
+
+      setTimeout(() => {
+        try {
+          ctx.close();
+        } catch {
+          // ignore
+        }
+      }, 300);
+    } catch {
+      // ignore sound errors
+    }
+  }, []);
+
+  const refreshUnread = useCallback(async () => {
+    const uid = localStorage.getItem("session_user_id");
+    if (!uid) {
+      setUnreadNotifications(0);
+      return;
+    }
+    const { count, error } = await supabase
+      .from("app_notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", uid)
+      .is("read_at", null);
+    if (error) setUnreadNotifications(0);
+    else if (count !== null) setUnreadNotifications(count);
+  }, []);
+
+  useEffect(() => {
+    refreshUnread();
+    const onEvt = () => refreshUnread();
+    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, onEvt);
+    const t = setInterval(refreshUnread, 60000);
+    return () => {
+      window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, onEvt);
+      clearInterval(t);
+    };
+  }, [refreshUnread]);
+
+  const fetchNotifications = useCallback(async () => {
+    const uid = localStorage.getItem("session_user_id");
+    if (!uid) {
+      setNotifs([]);
+      return;
+    }
+    setNotifLoading(true);
+    const { data } = await supabase
+      .from("app_notifications")
+      .select("id, type, title, body, entity_type, entity_id, read_at, created_at")
+      .eq("user_id", uid)
+      .order("created_at", { ascending: false })
+      .limit(40);
+    setNotifs((data ?? []) as NotificationRow[]);
+    setNotifLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (!showNotifPanel) return;
+    fetchNotifications();
+  }, [showNotifPanel, fetchNotifications]);
+
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (notifPanelRef.current?.contains(t)) return;
+      if (notifBtnRef.current?.contains(t)) return;
+      setShowNotifPanel(false);
+    };
+    if (showNotifPanel) document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [showNotifPanel]);
+
+  useEffect(() => {
+    const showBell = !!onNotificationNavigate;
+    if (!showBell) {
+      prevUnreadRef.current = unreadNotifications;
+      return;
+    }
+    const prev = prevUnreadRef.current;
+    if (prev === 0 && unreadNotifications > 0) {
+      playNotificationSound();
+    }
+    prevUnreadRef.current = unreadNotifications;
+  }, [onNotificationNavigate, unreadNotifications, playNotificationSound]);
+
+  const markNotifRead = useCallback(async (id: string) => {
+    await supabase
+      .from("app_notifications")
+      .update({ read_at: new Date().toISOString() })
+      .eq("id", id);
+    refreshUnread();
+  }, [refreshUnread]);
+
+  const openNotification = useCallback(async (row: NotificationRow) => {
+    if (!row.read_at) await markNotifRead(row.id);
+    setShowNotifPanel(false);
+    onNotificationNavigate?.(row.entity_type ?? "", row.entity_id ?? null);
+  }, [markNotifRead, onNotificationNavigate]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
@@ -301,7 +451,136 @@ const Header: React.FC<HeaderProps> = ({ currentUserName, userRole, onMenuClick 
         </div>
 
         {/* User + Logout */}
-        <div className="hdr-user-block" style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+        <div className="hdr-user-block" style={{ display: "flex", alignItems: "center", gap: "0.75rem", position: "relative" }}>
+          {onNotificationNavigate && (
+            <button
+              ref={notifBtnRef}
+              type="button"
+              onClick={() => setShowNotifPanel((v) => !v)}
+              title="Notifications"
+              style={{
+                position: "relative",
+                width: 56,
+                height: 56,
+                borderRadius: 16,
+                border: "none",
+                background: "transparent",
+                color: brandBlue,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "none",
+              }}
+            >
+              <Bell size={22} strokeWidth={2.2} />
+              {unreadNotifications > 0 && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: 4,
+                    right: 4,
+                    minWidth: 16,
+                    height: 16,
+                    padding: "0 4px",
+                    borderRadius: 999,
+                    background: "#dc2626",
+                    color: "#fff",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                </span>
+              )}
+            </button>
+          )}
+          {onNotificationNavigate && showNotifPanel && (
+            <div
+              ref={notifPanelRef}
+              style={{
+                position: "absolute",
+                top: 60,
+                right: 0,
+                width: 360,
+                maxHeight: 520,
+                overflowY: "auto",
+                background: "#fff",
+                border: "1px solid #e2e8f0",
+                borderRadius: 14,
+                boxShadow: "0 18px 36px rgba(15,23,42,0.18)",
+                zIndex: 1200,
+                padding: "0.75rem",
+              }}
+            >
+              <div style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Notifications</div>
+              {notifLoading ? (
+                <div style={{ fontSize: 13, color: "#94a3b8", padding: "1rem 0.5rem" }}>Loading...</div>
+              ) : notifs.length === 0 ? (
+                <div style={{ fontSize: 13, color: "#94a3b8", padding: "1rem 0.5rem" }}>No notifications.</div>
+              ) : (
+                <>
+                  {notifs.some((n) => !n.read_at) && (
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", margin: "0.5rem 0.25rem" }}>New</div>
+                  )}
+                  {notifs.filter((n) => !n.read_at).map((n) => (
+                    <button
+                      key={n.id}
+                      type="button"
+                      onClick={() => { void openNotification(n); }}
+                      style={{
+                        width: "100%",
+                        textAlign: "left",
+                        border: "none",
+                        background: "rgba(10,76,134,0.08)",
+                        borderRadius: 10,
+                        padding: "0.7rem",
+                        marginBottom: 8,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase" }}>{n.type.replace(/_/g, " ")}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginTop: 4 }}>{n.title}</div>
+                      {n.body && <div style={{ fontSize: 13, color: "#374151", marginTop: 4 }}>{n.body}</div>}
+                      <div style={{ fontSize: 11, color: "#64748b", marginTop: 6 }}>
+                        {new Date(n.created_at).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}
+                      </div>
+                    </button>
+                  ))}
+                  {notifs.some((n) => !!n.read_at) && (
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", margin: "0.5rem 0.25rem" }}>Earlier</div>
+                  )}
+                  {notifs.filter((n) => !!n.read_at).map((n) => (
+                    <button
+                      key={n.id}
+                      type="button"
+                      onClick={() => { void openNotification(n); }}
+                      style={{
+                        width: "100%",
+                        textAlign: "left",
+                        border: "none",
+                        background: "#fff",
+                        borderRadius: 10,
+                        padding: "0.7rem",
+                        marginBottom: 8,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase" }}>{n.type.replace(/_/g, " ")}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginTop: 4 }}>{n.title}</div>
+                      {n.body && <div style={{ fontSize: 13, color: "#374151", marginTop: 4 }}>{n.body}</div>}
+                      <div style={{ fontSize: 11, color: "#64748b", marginTop: 6 }}>
+                        {new Date(n.created_at).toLocaleString("en-PH", { timeZone: "Asia/Manila" })}
+                      </div>
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
           <div
             className="hdr-avatar"
             style={{

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   Home,
   Building2,
@@ -9,6 +9,8 @@ import {
   CircleArrowUp,
   TicketIcon,
   X,
+  Wrench,
+  ScrollText,
 } from "lucide-react";
 
 const baseBlue = "#0a4c86";
@@ -24,12 +26,8 @@ type MenuSection = {
   items: MenuItem[];
 };
 
-const menuSections: MenuSection[] = [
-  {
-    items: [
-      { label: "Home", icon: Home },
-    ],
-  },
+const adminMenuSections: MenuSection[] = [
+  { items: [{ label: "Home", icon: Home }] },
   {
     heading: "Tickets & Repairs",
     items: [
@@ -53,13 +51,42 @@ const menuSections: MenuSection[] = [
   },
   {
     heading: "Reports",
+    items: [{ label: "Reports & Analytics", icon: BarChart2 }],
+  },
+  {
+    heading: "Workspace",
     items: [
-      { label: "Reports & Analytics", icon: BarChart2 },
+      { label: "Activity Log", icon: ScrollText },
     ],
   },
 ];
 
-const adminOnly = ["User Accounts", "Reports & Analytics"];
+const technicianMenuSections: MenuSection[] = [
+  { items: [{ label: "Home", icon: Home }] },
+  {
+    heading: "Tickets & Repairs",
+    items: [
+      { label: "My Tickets", icon: TicketIcon },
+      { label: "My Repairs", icon: Wrench },
+      { label: "Repair History", icon: ClipboardList },
+    ],
+  },
+  {
+    heading: "Units",
+    items: [
+      { label: "Incoming Units", icon: CircleArrowDown },
+      { label: "Outgoing Units", icon: CircleArrowUp },
+    ],
+  },
+  {
+    heading: "Workspace",
+    items: [
+      { label: "Activity Log", icon: ScrollText },
+    ],
+  },
+];
+
+const adminOnlyLabels = ["User Accounts", "Reports & Analytics"];
 
 type SidebarProps = {
   activeLabel: string;
@@ -71,6 +98,12 @@ type SidebarProps = {
 
 const Sidebar: React.FC<SidebarProps> = ({ activeLabel, onNavigate, userRole, isMobileOpen, onMobileClose }) => {
   const isAdmin = userRole === "Administrator";
+  const isTechnician = userRole === "IT Technician";
+
+  const menuSections = useMemo(
+    () => (isTechnician ? technicianMenuSections : adminMenuSections),
+    [isTechnician]
+  );
 
   const handleNav = (label: string) => {
     onNavigate(label);
@@ -127,7 +160,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeLabel, onNavigate, userRole, is
           overflow: "hidden",
         }}
       >
-        {/* Logo */}
         <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
           <img
             src="/masaya-sa-tarlac-city.png"
@@ -140,9 +172,16 @@ const Sidebar: React.FC<SidebarProps> = ({ activeLabel, onNavigate, userRole, is
               onClick={onMobileClose}
               aria-label="Close menu"
               style={{
-                display: "flex", alignItems: "center", justifyContent: "center",
-                width: 36, height: 36, borderRadius: 10, border: "none",
-                background: "#f1f5f9", color: "#475569", cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                border: "none",
+                background: "#f1f5f9",
+                color: "#475569",
+                cursor: "pointer",
                 flexShrink: 0,
               }}
               className="sidebar-close-btn"
@@ -152,20 +191,28 @@ const Sidebar: React.FC<SidebarProps> = ({ activeLabel, onNavigate, userRole, is
           )}
         </div>
 
-        {/* Sectioned Nav - scrollable when menu overflows */}
-        <nav className="adm-scroll-area" style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}>
+        <nav
+          className="adm-scroll-area"
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: "auto",
+            display: "flex",
+            flexDirection: "column",
+            gap: 4,
+            fontSize: 13,
+          }}
+        >
           {menuSections.map((section, sIdx) => {
-            // Pre-filter: only keep items the current role can see
-            const visibleItems = section.items.filter(({ label }) =>
-              !adminOnly.includes(label) || isAdmin
-            );
+            const visibleItems = section.items.filter(({ label }) => {
+              if (isTechnician) return true;
+              return !adminOnlyLabels.includes(label) || isAdmin;
+            });
 
-            // Skip entire section (heading + divider) if nothing to show
             if (visibleItems.length === 0) return null;
 
             return (
               <div key={sIdx} style={{ marginBottom: section.heading ? 6 : 0 }}>
-                {/* Section Heading */}
                 {section.heading && (
                   <div
                     style={{
@@ -181,7 +228,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeLabel, onNavigate, userRole, is
                   </div>
                 )}
 
-                {/* Visible Items */}
                 {visibleItems.map(({ label, icon: Icon }) => {
                   const active = label === activeLabel;
                   return (
@@ -212,7 +258,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeLabel, onNavigate, userRole, is
                   );
                 })}
 
-                {/* Divider between sections (not after last) */}
                 {sIdx < menuSections.length - 1 && (
                   <div
                     style={{
