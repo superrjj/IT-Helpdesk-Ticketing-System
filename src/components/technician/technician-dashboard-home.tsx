@@ -79,7 +79,7 @@ const TechnicianDashboardHome: React.FC = () => {
 
   return (
     <div style={{ fontFamily: "'Poppins', sans-serif", color: "#0f172a" }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px" }}>Technician Dashboard</h1>
+      <h1 style={{ fontSize: 22, letterSpacing: 1, fontWeight: 700, margin: "0 0 4px" }}>Technician Dashboard</h1>
       <p style={{ fontSize: 13, color: "#64748b", marginBottom: "1.25rem" }}>Your assignments at a glance.</p>
 
       {loading ? (
